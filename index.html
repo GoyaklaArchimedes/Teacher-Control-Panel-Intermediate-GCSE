@@ -1426,6 +1426,470 @@ function makeMixedPercentRatio(){
 }
 
 /* =========================
+   PRIME FACTORS, HCF & LCM GENERATORS
+   ========================= */
+
+/* --- Shared utilities --- */
+function primeFactorise(n){
+  // Returns sorted array of prime factors (with repeats) e.g. 12 → [2,2,3]
+  const factors = [];
+  let d = 2;
+  while(n > 1){
+    while(n % d === 0){ factors.push(d); n = Math.floor(n/d); }
+    d++;
+  }
+  return factors;
+}
+
+function primeFactorMap(n){
+  // Returns object {prime: exponent, ...} e.g. 12 → {2:2, 3:1}
+  const map = {};
+  const factors = primeFactorise(n);
+  for(const p of factors){ map[p] = (map[p] || 0) + 1; }
+  return map;
+}
+
+function hcfOf(a, b){ return gcd(a, b); }
+function hcfOf3(a, b, c){ return gcd(gcd(a,b), c); }
+function lcmOf(a, b){ return (a * b) / gcd(a, b); }
+function lcmOf3(a, b, c){ return lcmOf(lcmOf(a,b), c); }
+
+function formatPrimeFactorProduct(n){
+  // e.g. 40 → "2³ × 5"
+  const map = primeFactorMap(n);
+  const primes = Object.keys(map).map(Number).sort((a,b)=>a-b);
+  return primes.map(p => {
+    const e = map[p];
+    return e === 1 ? String(p) : `${p}${toSuperscript(e)}`;
+  }).join(' \u00d7 ');
+}
+
+/* ---- FACTORY: Prime Factorisation (Foundation level) ---- */
+function makePrimeFactorisation(){
+  // Foundation: smaller numbers; Intermediate/Higher: up to 3-digit
+  const pools = [40,60,72,84,90,96,98,120,126,150,180,240,252,360];
+  const n = choice(pools);
+  const answer = formatPrimeFactorProduct(n);
+
+  // Distractors: swap an exponent, drop a factor, use non-prime
+  const map = primeFactorMap(n);
+  const primes = Object.keys(map).map(Number).sort((a,b)=>a-b);
+
+  // Distractor 1: increment one exponent (wrong)
+  const w1map = {...map};
+  const p1 = choice(primes);
+  w1map[p1] = (w1map[p1] || 1) + 1;
+  const w1 = Object.keys(w1map).map(Number).sort((a,b)=>a-b).map(p=>w1map[p]===1?String(p):`${p}${toSuperscript(w1map[p])}`).join(' \u00d7 ');
+
+  // Distractor 2: replace a prime with composite (e.g. 4 instead of 2²)
+  const w2map = {...map};
+  if(primes.includes(2) && w2map[2] >= 2){
+    delete w2map[2]; w2map[4] = 1;
+  } else {
+    const pAlt = primes[0];
+    w2map[pAlt] = Math.max(1, w2map[pAlt] - 1);
+    if(w2map[pAlt] === 0) delete w2map[pAlt];
+  }
+  const w2 = Object.keys(w2map).map(Number).sort((a,b)=>a-b).map(p=>w2map[p]===1?String(p):`${p}${toSuperscript(w2map[p])}`).join(' \u00d7 ');
+
+  // Distractor 3: decrement an exponent
+  const w3map = {...map};
+  const p3 = choice(primes);
+  if(w3map[p3] > 1){ w3map[p3]--; } else { w3map[p3]++; }
+  const w3 = Object.keys(w3map).map(Number).sort((a,b)=>a-b).map(p=>w3map[p]===1?String(p):`${p}${toSuperscript(w3map[p])}`).join(' \u00d7 ');
+
+  const mcq = buildMCQOptions(answer, [w1, w2, w3]);
+  if(!mcq) return makePrimeFactorisation();
+
+  // Worked solution using factor tree steps
+  const steps = [];
+  let rem = n;
+  let d2 = 2;
+  while(rem > 1){
+    if(rem % d2 === 0){ steps.push(`${rem} \u00f7 ${d2} = ${rem/d2}`); rem = Math.floor(rem/d2); } else { d2++; }
+  }
+
+  return {
+    id: makeID("PF"),
+    topic: "Number",
+    skill: "Prime factor decomposition",
+    difficulty: "Foundation",
+    question: `Write ${n} as a product of its prime factors.\nGive your answer using index notation where appropriate.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Divide repeatedly by the smallest prime factor:\n${steps.join('\n')}\n\n${n} = ${answer}`
+  };
+}
+
+/* ---- FACTORY: HCF of Two Numbers ---- */
+function makeHCFTwoNumbers(){
+  // Pick two numbers with a non-trivial HCF
+  const pairs = [
+    [60,114],[72,90],[48,84],[36,60],[90,126],[60,96],[84,120],[120,150],
+    [72,108],[56,84],[100,140],[60,180],[90,135],[48,72],[84,126]
+  ];
+  const [a, b] = choice(pairs);
+  const h = hcfOf(a, b);
+  const answer = String(h);
+
+  // Distractors
+  const w1 = String(h * 2);
+  const w2 = String(Math.min(a,b) / 2 | 0);
+  const w3 = String(hcfOf(a,b) + 1);
+
+  const mcq = buildMCQOptions(answer, [w1, w2, w3]);
+  if(!mcq) return makeHCFTwoNumbers();
+
+  const pfA = formatPrimeFactorProduct(a);
+  const pfB = formatPrimeFactorProduct(b);
+  const pfH = formatPrimeFactorProduct(h);
+  return {
+    id: makeID("HCF"),
+    topic: "Number",
+    skill: "Highest common factor (HCF)",
+    difficulty: "Foundation / Intermediate",
+    question: `Find the highest common factor (HCF) of ${a} and ${b}.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Write each as a product of prime factors:\n${a} = ${pfA}\n${b} = ${pfB}\n\nMultiply the common prime factors:\nHCF = ${pfH} = ${h}`
+  };
+}
+
+/* ---- FACTORY: LCM of Two Numbers ---- */
+function makeLCMTwoNumbers(){
+  const pairs = [
+    [120,150],[8,20],[12,15],[10,14],[6,9],[12,18],[15,20],[4,6],
+    [8,12],[10,15],[6,14],[9,12],[15,25],[12,16],[20,30]
+  ];
+  const [a, b] = choice(pairs);
+  const L = lcmOf(a, b);
+  const answer = String(L);
+
+  const w1 = String(a * b);
+  const w2 = String(L / 2);
+  const w3 = String(L + Math.min(a,b));
+
+  const mcq = buildMCQOptions(answer, [w1, w2, w3]);
+  if(!mcq) return makeLCMTwoNumbers();
+
+  const pfA = formatPrimeFactorProduct(a);
+  const pfB = formatPrimeFactorProduct(b);
+  const pfL = formatPrimeFactorProduct(L);
+  return {
+    id: makeID("LCM"),
+    topic: "Number",
+    skill: "Lowest common multiple (LCM)",
+    difficulty: "Foundation / Intermediate",
+    question: `Find the lowest common multiple (LCM) of ${a} and ${b}.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Write each as a product of prime factors:\n${a} = ${pfA}\n${b} = ${pfB}\n\nFor each prime take the highest power:\nLCM = ${pfL} = ${L}`
+  };
+}
+
+/* ---- FACTORY: HCF/LCM from given prime factor form (Intermediate/Higher) ---- */
+function makeHCFLCMFromGivenPF(){
+  // Numbers given already in prime factor form; find HCF and LCM
+  const cases = [
+    { a:648, b:540, pfA:"2\u00b3 \u00d7 3\u2074", pfB:"2\u00b2 \u00d7 3\u00b3 \u00d7 5" },
+    { a:360, b:168, pfA:"2\u00b3 \u00d7 3\u00b2 \u00d7 5", pfB:"2\u00b3 \u00d7 3 \u00d7 7" },
+    { a:540, b:630, pfA:"2\u00b2 \u00d7 3\u00b3 \u00d7 5", pfB:"2 \u00d7 3\u00b2 \u00d7 5 \u00d7 7" },
+    { a:280, b:168, pfA:"2\u00b3 \u00d7 5 \u00d7 7", pfB:"2\u00b3 \u00d7 3 \u00d7 7" },
+    { a:504, b:630, pfA:"2\u00b3 \u00d7 3\u00b2 \u00d7 7", pfB:"2 \u00d7 3\u00b2 \u00d7 5 \u00d7 7" },
+  ];
+  const c = choice(cases);
+  const { a, b, pfA, pfB } = c;
+  const h = hcfOf(a, b);
+  const L = lcmOf(a, b);
+  const part = choice(["hcf","lcm"]);
+  const answer = String(part === "hcf" ? h : L);
+
+  // Distractors
+  const w1 = String(part === "hcf" ? h * 2 : L * 2);
+  const w2 = String(part === "hcf" ? Math.floor(h / 2) + 1 : Math.floor(L * 3 / 2));
+  const w3 = String(part === "hcf" ? h + 1 : L - Math.min(a,b));
+
+  const mcq = buildMCQOptions(answer, [w1, w2, w3]);
+  if(!mcq) return makeHCFLCMFromGivenPF();
+
+  const qWord = part === "hcf" ? "highest common factor (HCF)" : "lowest common multiple (LCM)";
+  const solHCF = `HCF: take the lowest power of each shared prime factor.\n${pfA} and ${pfB}\nShared primes: common factors → HCF = ${formatPrimeFactorProduct(h)} = ${h}`;
+  const solLCM = `LCM: take the highest power of every prime factor that appears.\nLCM = ${formatPrimeFactorProduct(L)} = ${L}`;
+
+  return {
+    id: makeID("HCF"),
+    topic: "Number",
+    skill: part === "hcf" ? "HCF from prime factor form" : "LCM from prime factor form",
+    difficulty: "Intermediate / Higher",
+    question: `${a} = ${pfA}\n${b} = ${pfB}\n\nFind the ${qWord} of ${a} and ${b}.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: part === "hcf" ? solHCF : `${solHCF}\n\n${solLCM}`
+  };
+}
+
+/* ---- FACTORY: LCM Application — Buses / Lights (2 items) ---- */
+function makeLCMApplication2(){
+  const type = choice(["buses","lights"]);
+
+  if(type === "buses"){
+    const busPairs = [
+      {aMin:10, bMin:14, start:"11 am", name:"Bus A", nameB:"Bus B"},
+      {aMin:12, bMin:20, start:"9 am", name:"Bus A", nameB:"Bus B"},
+      {aMin:8,  bMin:12, start:"8 am", name:"Bus 1", nameB:"Bus 2"},
+      {aMin:6,  bMin:9,  start:"10 am", name:"Bus X", nameB:"Bus Y"},
+      {aMin:15, bMin:20, start:"noon", name:"Bus A", nameB:"Bus B"},
+    ];
+    const bp = choice(busPairs);
+    const L = lcmOf(bp.aMin, bp.bMin);
+    // Convert start + L minutes to a time string
+    function addMinutes(startStr, mins){
+      const map = {"9 am":9*60,"10 am":10*60,"11 am":11*60,"8 am":8*60,"noon":12*60,"12 pm":12*60};
+      const base = map[startStr] || 11*60;
+      const total = base + mins;
+      const h = Math.floor(total/60);
+      const m = total % 60;
+      const period = h < 12 ? "am" : "pm";
+      const disp = h > 12 ? h-12 : (h === 0 ? 12 : h);
+      return m === 0 ? `${disp} ${period}` : `${disp}:${String(m).padStart(2,"0")} ${period}`;
+    }
+    const nextTime = addMinutes(bp.start, L);
+    const answer = nextTime;
+    const w1 = addMinutes(bp.start, bp.aMin * bp.bMin);
+    const w2 = addMinutes(bp.start, L/2 >= bp.aMin ? L/2 : L+5);
+    const w3 = addMinutes(bp.start, L + bp.aMin);
+    const mcq = buildMCQOptions(answer, [w1, w2, w3]);
+    if(!mcq) return makeLCMApplication2();
+
+    return {
+      id: makeID("LCM"),
+      topic: "Number",
+      skill: "LCM — real-life application",
+      difficulty: "Foundation / Intermediate",
+      question: `Two buses, ${bp.name} and ${bp.nameB}, both stop at the same bus stop.\n${bp.name} runs every ${bp.aMin} minutes.\n${bp.nameB} runs every ${bp.bMin} minutes.\nBoth buses are at the bus stop at ${bp.start}.\nWhat time will both buses next be at the bus stop together?`,
+      options: mcq.options,
+      correctIndex: mcq.correctIndex,
+      solution: `Find the LCM of ${bp.aMin} and ${bp.bMin}.\n${bp.aMin} = ${formatPrimeFactorProduct(bp.aMin)}\n${bp.bMin} = ${formatPrimeFactorProduct(bp.bMin)}\nLCM = ${L} minutes\n${bp.start} + ${L} min = ${nextTime}`
+    };
+  } else {
+    // Lights flashing
+    const lightPairs = [
+      {a:8, b:20, nameA:"Light A", nameB:"Light B"},
+      {a:6, b:10, nameA:"Light A", nameB:"Light B"},
+      {a:4, b:6, nameA:"Light A", nameB:"Light B"},
+      {a:9, b:15, nameA:"Light A", nameB:"Light B"},
+      {a:10, b:15, nameA:"Light A", nameB:"Light B"},
+    ];
+    const lp = choice(lightPairs);
+    const L = lcmOf(lp.a, lp.b);
+    const answer = String(L);
+    const w1 = String(lp.a * lp.b);
+    const w2 = String(L + lp.a);
+    const w3 = String(hcfOf(lp.a, lp.b));
+    const mcq = buildMCQOptions(answer, [w1, w2, w3]);
+    if(!mcq) return makeLCMApplication2();
+
+    return {
+      id: makeID("LCM"),
+      topic: "Number",
+      skill: "LCM — real-life application",
+      difficulty: "Foundation / Intermediate",
+      question: `${lp.nameA} flashes every ${lp.a} seconds.\n${lp.nameB} flashes every ${lp.b} seconds.\nBoth lights flash at the same time.\nWork out how long it will take for both lights to flash at the same time again.`,
+      options: mcq.options,
+      correctIndex: mcq.correctIndex,
+      solution: `Find the LCM of ${lp.a} and ${lp.b}.\n${lp.a} = ${formatPrimeFactorProduct(lp.a)}\n${lp.b} = ${formatPrimeFactorProduct(lp.b)}\nLCM = ${L} seconds`
+    };
+  }
+}
+
+/* ---- FACTORY: LCM of Three Numbers (Higher) ---- */
+function makeLCMThreeNumbers(){
+  const triples = [
+    [12,15,18],[4,6,10],[6,10,15],[8,12,20],[9,12,15],[10,12,15],[6,8,9],[12,16,18]
+  ];
+  const [a,b,c] = choice(triples);
+  const L = lcmOf3(a,b,c);
+  const answer = String(L);
+  const w1 = String(a*b*c / hcfOf3(a,b,c));
+  const w2 = String(L / 2 >= Math.max(a,b,c) ? L/2 : L+Math.min(a,b,c));
+  const w3 = String(lcmOf(a,b));
+  const mcq = buildMCQOptions(answer, [w1, w2, w3]);
+  if(!mcq) return makeLCMThreeNumbers();
+
+  return {
+    id: makeID("LCM"),
+    topic: "Number",
+    skill: "LCM of three numbers",
+    difficulty: "Higher",
+    question: `Find the lowest common multiple (LCM) of ${a}, ${b} and ${c}.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `${a} = ${formatPrimeFactorProduct(a)}\n${b} = ${formatPrimeFactorProduct(b)}\n${c} = ${formatPrimeFactorProduct(c)}\nTake the highest power of each prime:\nLCM = ${formatPrimeFactorProduct(L)} = ${L}`
+  };
+}
+
+/* ---- FACTORY: HCF of Three Numbers (Higher) ---- */
+function makeHCFThreeNumbers(){
+  const triples = [
+    [72,90,126],[60,84,108],[48,72,96],[90,126,162],[36,60,84],[60,90,120],[72,108,144]
+  ];
+  const [a,b,c] = choice(triples);
+  const h = hcfOf3(a,b,c);
+  const answer = String(h);
+  const w1 = String(h * 2);
+  const w2 = String(h * 3);
+  const w3 = String(Math.floor(h * 1.5) + 1);
+  const mcq = buildMCQOptions(answer, [w1, w2, w3]);
+  if(!mcq) return makeHCFThreeNumbers();
+
+  return {
+    id: makeID("HCF"),
+    topic: "Number",
+    skill: "HCF of three numbers",
+    difficulty: "Higher",
+    question: `Find the highest common factor (HCF) of ${a}, ${b} and ${c}.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `${a} = ${formatPrimeFactorProduct(a)}\n${b} = ${formatPrimeFactorProduct(b)}\n${c} = ${formatPrimeFactorProduct(c)}\nMultiply common prime factors (lowest powers):\nHCF = ${formatPrimeFactorProduct(h)} = ${h}`
+  };
+}
+
+/* ---- FACTORY: LCM Application — 3 Lights (Higher) ---- */
+function makeLCMApplication3(){
+  const cases = [
+    {a:5, b:6, c:7, nameA:"Light A", nameB:"Light B", nameC:"Light C"},
+    {a:4, b:6, c:9, nameA:"Light A", nameB:"Light B", nameC:"Light C"},
+    {a:6, b:8, c:12, nameA:"Light A", nameB:"Light B", nameC:"Light C"},
+    {a:3, b:5, c:6, nameA:"Light A", nameB:"Light B", nameC:"Light C"},
+    {a:4, b:5, c:6, nameA:"Light A", nameB:"Light B", nameC:"Light C"},
+  ];
+  const {a,b,c,nameA,nameB,nameC} = choice(cases);
+  const L = lcmOf3(a,b,c);
+  const answer = String(L);
+  const w1 = String(a*b*c);
+  const w2 = String(lcmOf(a,b));
+  const w3 = String(L + a);
+  const mcq = buildMCQOptions(answer, [w1, w2, w3]);
+  if(!mcq) return makeLCMApplication3();
+
+  return {
+    id: makeID("LCM"),
+    topic: "Number",
+    skill: "LCM — three-item application",
+    difficulty: "Higher",
+    question: `${nameA} flashes every ${a} seconds.\n${nameB} flashes every ${b} seconds.\n${nameC} flashes every ${c} seconds.\nAll three lights flash at the same time.\nWork out how long it will take for all three lights to flash at the same time again.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Find LCM of ${a}, ${b} and ${c}.\n${a} = ${formatPrimeFactorProduct(a)}\n${b} = ${formatPrimeFactorProduct(b)}\n${c} = ${formatPrimeFactorProduct(c)}\nLCM = ${formatPrimeFactorProduct(L)} = ${L} seconds`
+  };
+}
+
+/* ---- FACTORY: HCF/LCM from algebraic prime-factor expressions (Higher) ---- */
+function makeHCFLCMAlgebraicPF(){
+  // Like Page 4 Image: A = 2² × 3 × 5², B = 2³ × 3² × 7
+  const cases = [
+    {
+      nameA:"A", nameB:"B",
+      pfA:"2\u00b2 \u00d7 3 \u00d7 5\u00b2", a: 4*3*25,    // 300
+      pfB:"2\u00b3 \u00d7 3\u00b2 \u00d7 7", b: 8*9*7,     // 504
+    },
+    {
+      nameA:"P", nameB:"Q",
+      pfA:"2\u00b2 \u00d7 3\u00b2 \u00d7 5", a: 4*9*5,     // 180
+      pfB:"2\u00b3 \u00d7 3 \u00d7 7", b: 8*3*7,           // 168
+    },
+    {
+      nameA:"A", nameB:"B",
+      pfA:"2 \u00d7 3\u00b2 \u00d7 5\u00b2", a: 2*9*25,    // 450
+      pfB:"2\u00b3 \u00d7 3\u00b3 \u00d7 5", b: 8*27*5,    // 1080
+    },
+    {
+      nameA:"M", nameB:"N",
+      pfA:"2\u00b3 \u00d7 5 \u00d7 7", a: 8*5*7,           // 280
+      pfB:"2\u00b2 \u00d7 3\u00b2 \u00d7 5", b: 4*9*5,     // 180
+    },
+  ];
+  const {nameA, nameB, pfA, pfB, a, b} = choice(cases);
+  const h = hcfOf(a, b);
+  const L = lcmOf(a, b);
+  const part = choice(["hcf","lcm"]);
+  const answer = String(part === "hcf" ? h : L);
+
+  const w1 = String(part === "hcf" ? h * 2 : L * 2);
+  const w2 = String(part === "hcf" ? hcfOf(h, Math.min(a,b)) : a * b / gcd(a,b) + 10);
+  const w3 = String(part === "hcf" ? h - 1 : L - Math.min(a,b));
+  const mcq = buildMCQOptions(answer, [w1, w2, w3]);
+  if(!mcq) return makeHCFLCMAlgebraicPF();
+
+  const qWord = part === "hcf" ? "highest common factor (HCF)" : "lowest common multiple (LCM)";
+  const instruction = part === "hcf"
+    ? `Write down the ${qWord} of ${nameA} and ${nameB}.`
+    : `Find the ${qWord} of ${nameA} and ${nameB}.`;
+
+  return {
+    id: makeID("HCF"),
+    topic: "Number",
+    skill: part === "hcf" ? "HCF from prime factor expressions" : "LCM from prime factor expressions",
+    difficulty: "Higher",
+    question: `${nameA} = ${pfA}\n${nameB} = ${pfB}\n\n${instruction}`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: part === "hcf"
+      ? `HCF: for each shared prime, take the lowest power.\n${nameA} = ${pfA}\n${nameB} = ${pfB}\nHCF = ${formatPrimeFactorProduct(h)} = ${h}`
+      : `LCM: for every prime that appears, take the highest power.\n${nameA} = ${pfA}\n${nameB} = ${pfB}\nLCM = ${formatPrimeFactorProduct(L)} = ${L}`
+  };
+}
+
+/* ---- FACTORY: Find two numbers given HCF and LCM (Higher) ---- */
+function makeFindNumbersFromHCFLCM(){
+  // Kenny-style: HCF and LCM are given, find two numbers both > threshold
+  const cases = [
+    { hcf:7, lcm:84, threshold:10 },
+    { hcf:6, lcm:72, threshold:10 },
+    { hcf:5, lcm:60, threshold:10 },
+    { hcf:4, lcm:48, threshold:8 },
+    { hcf:9, lcm:108, threshold:10 },
+    { hcf:8, lcm:96, threshold:10 },
+    { hcf:3, lcm:45, threshold:5 },
+  ];
+  const { hcf, lcm, threshold } = choice(cases);
+  // Find all pairs (a, b) with a*b = hcf*lcm, gcd(a,b)=hcf, a>threshold, b>threshold
+  const product = hcf * lcm;
+  const validPairs = [];
+  for(let a = threshold+1; a < lcm; a++){
+    if(product % a === 0){
+      const b = product / a;
+      if(b > threshold && a <= b && gcd(a,b) === hcf && lcmOf(a,b) === lcm){
+        validPairs.push([a, b]);
+      }
+    }
+  }
+  if(validPairs.length === 0) return makeFindNumbersFromHCFLCM();
+  const [ansA, ansB] = choice(validPairs);
+  const answer = `${ansA} and ${ansB}`;
+
+  // Distractors: wrong pairs
+  const w1 = `${hcf} and ${lcm}`;
+  const w2 = `${ansA * 2} and ${ansB / 2}`;
+  const w3 = `${hcf * 2} and ${lcm / 2}`;
+  const mcq = buildMCQOptions(answer, [w1, w2, w3]);
+  if(!mcq) return makeFindNumbersFromHCFLCM();
+
+  return {
+    id: makeID("HCF"),
+    topic: "Number",
+    skill: "Find numbers from HCF and LCM",
+    difficulty: "Higher",
+    question: `Two numbers are both greater than ${threshold}.\nTheir highest common factor (HCF) is ${hcf}.\nTheir lowest common multiple (LCM) is ${lcm}.\nWrite down the two numbers.`,
+    options: mcq.options,
+    correctIndex: mcq.correctIndex,
+    solution: `Write LCM as a multiple of HCF: ${lcm} = ${hcf} \u00d7 ${lcm/hcf}\nFactor ${lcm/hcf} into two co-prime factors > 1: ${ansA/hcf} and ${ansB/hcf}\nMultiply each by HCF (${hcf}): ${ansA} and ${ansB}\nCheck: HCF(${ansA},${ansB}) = ${hcf} \u2713   LCM(${ansA},${ansB}) = ${lcm} \u2713`
+  };
+}
+
+
+
+/* =========================
    BIDMAS GENERATORS
    ========================= */
 
@@ -7758,6 +8222,11 @@ function makeRearrangingFormulaExtended(){
 }
 
 const FACTORY_REGISTRY = [
+  { topic:"Number", name:"Prime Factor Decomposition", fn:makePrimeFactorisation, prefix:"PF", inMap:true },
+  { topic:"Number", name:"HCF — Two Numbers", fn:makeHCFTwoNumbers, prefix:"HCF", inMap:true },
+  { topic:"Number", name:"LCM — Two Numbers", fn:makeLCMTwoNumbers, prefix:"LCM", inMap:true },
+  { topic:"Number", name:"HCF/LCM — From Prime Factor Form", fn:makeHCFLCMFromGivenPF, prefix:"HCF", inMap:true },
+  { topic:"Number", name:"LCM — Application (2 items)", fn:makeLCMApplication2, prefix:"LCM", inMap:true },
   { topic:"Number", name:"Reverse Percentage (Money)", fn:makeReversePercentMoney, prefix:"REV%M", inMap:true },
   { topic:"Number", name:"Percentage Change", fn:makePercentChange, prefix:"PCHG", inMap:true },
   { topic:"Number", name:"Ratio \u2014 Simplify", fn:makeRatioSimplify, prefix:"RATIO", inMap:true },
