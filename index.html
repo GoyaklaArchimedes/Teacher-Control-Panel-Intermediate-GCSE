@@ -29,7 +29,10 @@
     .factory-btn .fnum{flex-shrink:0;width:24px;font-size:0.7rem;color:rgba(255,255,255,0.35);text-align:right;}
     .factory-btn .fname{flex:1;}
     .factory-btn .fprefix{flex-shrink:0;font-size:0.65rem;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.55);padding:1px 5px;border-radius:3px;font-family:monospace;}
-    .factory-btn.not-in-map .fname{color:rgba(255,255,255,0.5);font-style:italic;}
+    .factory-btn.not-in-map .fname{color:rgba(255,255,255,0.4);font-style:normal;}
+    .factory-btn.not-in-map{cursor:default;pointer-events:none;}
+    .sidebar-legend{padding:5px 14px 7px;font-size:0.68rem;color:rgba(255,255,255,0.45);border-bottom:1px solid rgba(255,255,255,0.08);}
+    .sidebar-legend span{color:rgba(255,255,255,0.6);}
     .factory-btn.tested .fname::after{content:" ✓";color:#6fa8dc;font-size:0.75rem;}
     .factory-btn.errored .fname::after{content:" ✗";color:#ff7c7c;font-size:0.75rem;}
     .factory-list::-webkit-scrollbar{width:4px;}
@@ -42,21 +45,15 @@
     .id-lookup input:focus{background:rgba(255,255,255,0.2);}
     .id-lookup-go{padding:6px 10px;background:#4169e1;color:#fff;border:none;border-radius:4px;font-size:0.78rem;font-weight:700;cursor:pointer;}
     .id-lookup-go:hover{background:#5a7ff0;}
-    .progress-bar-wrap{padding:10px 14px;border-top:1px solid rgba(255,255,255,0.10);}
-    .progress-label{font-size:0.72rem;color:rgba(255,255,255,0.5);margin-bottom:5px;display:flex;justify-content:space-between;}
-    .progress-track{height:5px;background:rgba(255,255,255,0.12);border-radius:3px;overflow:hidden;}
-    .progress-fill{height:100%;background:#6fa8dc;border-radius:3px;transition:width .3s;}
-    .run-all-wrap{padding:10px 14px;border-top:1px solid rgba(255,255,255,0.10);}
-    .run-all-btn{width:100%;padding:9px;background:#4169e1;color:#fff;font-weight:700;font-size:0.85rem;border:none;border-radius:5px;cursor:pointer;}
-    .run-all-btn:hover{background:#5a7ff0;}
-    .run-all-btn:disabled{opacity:0.6;cursor:not-allowed;}
+
+
     .topbar{padding:16px 24px 12px;background:#fff;border-bottom:1px solid #dde3f5;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
     .topbar-title{font-size:1.05rem;font-weight:700;color:#0f2d6b;flex:1;min-width:0;}
     .topbar-id{font-size:0.78rem;background:#eef3ff;color:#0f2d6b;padding:4px 10px;border-radius:5px;font-family:monospace;font-weight:600;cursor:pointer;white-space:nowrap;}
     .topbar-id:hover{background:#dce7ff;}
     .copy-hint{font-size:0.7rem;color:#8899cc;white-space:nowrap;}
     .copy-flash{color:#2a5ab0!important;font-weight:700;}
-    .not-in-map-badge{font-size:0.72rem;background:#fff3cd;color:#856404;padding:2px 8px;border-radius:4px;}
+
     .question-area{flex:1;padding:24px;box-sizing:border-box;}
     .q-card{background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,0.07);padding:22px 26px;width:100%;box-sizing:border-box;}
     .q-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center;}
@@ -105,6 +102,9 @@
     .wb-toolbar .wb-sep{width:1px;height:24px;background:#ccc;margin:0 4px;}
     .wb-size-btn{min-width:28px;height:28px;border-radius:50%!important;display:flex;align-items:center;justify-content:center;font-size:0.7rem;}
     .wb-size-btn.active{background:#2c4fa3!important;color:#fff!important;border-color:#2c4fa3!important;}
+    .wb-color-btn{width:24px;height:24px;border-radius:50%;border:3px solid transparent;cursor:pointer;padding:0;flex-shrink:0;}
+    .wb-color-btn.active{border-color:#fff;box-shadow:0 0 0 2px #2c4fa3;}
+    .wb-tool-btn.active{background:#e8f0ff!important;border-color:#2c4fa3!important;color:#2c4fa3!important;}
     /* Whiteboard background toggle buttons */
     .wb-bg-btn{padding:5px 12px;border:1px solid #bbb;background:#fff;border-radius:4px;cursor:pointer;font-size:0.78rem;font-weight:600;}
     .wb-bg-btn:hover{background:#e8e8e8;}
@@ -156,6 +156,7 @@
     <div class="sidebar-search">
       <input type="text" id="searchInput" placeholder="Search factories…" oninput="filterFactories()"/>
     </div>
+    <div class="sidebar-legend"><span>🔒</span> = Higher Tier Only</div>
     <div class="factory-list" id="factoryList"></div>
     <div class="id-lookup">
       <label>Jump to factory by question ID prefix</label>
@@ -164,34 +165,33 @@
         <button class="id-lookup-go" onclick="lookupByPrefix()">Go</button>
       </div>
     </div>
-    <div class="progress-bar-wrap">
-      <div class="progress-label"><span>Factories checked</span><span id="progressText">0 / 105</span></div>
-      <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
-    </div>
-    <div class="run-all-wrap">
-      <button class="run-all-btn" id="runAllBtn" onclick="runAllFactories()">▶ Run All &amp; Check</button>
-    </div>
-  </div>
+</div>
   <div class="main">
     <div id="whiteboardArea">
       <div class="wb-toolbar">
-        <label>Pen colour</label>
-        <input type="color" id="wbColor" value="#1a1a2e" title="Pen colour">
+        <label>Colour</label>
+        <button class="wb-color-btn active" id="wbColBlack" onclick="setWbColor('#1a1a2e',this)" style="background:#1a1a2e;" title="Black"></button>
+        <button class="wb-color-btn" id="wbColRed" onclick="setWbColor('#cc0000',this)" style="background:#cc0000;" title="Red"></button>
+        <button class="wb-color-btn" id="wbColBlue" onclick="setWbColor('#1a52b0',this)" style="background:#1a52b0;" title="Blue"></button>
+        <button class="wb-color-btn" id="wbColGreen" onclick="setWbColor('#1a7a1a',this)" style="background:#1a7a1a;" title="Green"></button>
         <span class="wb-sep"></span>
         <label>Size</label>
         <button class="wb-size-btn active" id="wbS1" onclick="setWbSize(2,this)">S</button>
         <button class="wb-size-btn" id="wbS2" onclick="setWbSize(5,this)">M</button>
         <button class="wb-size-btn" id="wbS3" onclick="setWbSize(12,this)">L</button>
         <span class="wb-sep"></span>
-        <button onclick="setWbTool('pen')" id="wbPenBtn" style="background:#e8f0ff;border-color:#2c4fa3;">✏️ Pen</button>
-        <button onclick="setWbTool('eraser')" id="wbEraserBtn">⬜ Eraser</button>
+        <button class="wb-tool-btn active" onclick="setWbTool('pen',this)" id="wbPenBtn">✏️ Pen</button>
+        <button class="wb-tool-btn" onclick="setWbTool('eraser',this)" id="wbEraserBtn">⬜ Eraser</button>
+        <button class="wb-tool-btn" onclick="setWbTool('line',this)" id="wbLineBtn">/ Line</button>
+        <button class="wb-tool-btn" onclick="setWbTool('circle',this)" id="wbCircleBtn">O Circle</button>
+        <button class="wb-tool-btn" onclick="setWbTool('rect',this)" id="wbRectBtn">[] Rect</button>
         <span class="wb-sep"></span>
         <button onclick="wbUndo()">↩ Undo</button>
         <button onclick="wbClear()" style="color:#c00;">🗑 Clear</button>
         <span class="wb-sep"></span>
-        <button class="wb-bg-btn active" id="wbBgPlain"  onclick="setWbBackground('plain')">⬜ Plain</button>
-        <button class="wb-bg-btn"        id="wbBgLines"  onclick="setWbBackground('lines')">≡ Lines</button>
-        <button class="wb-bg-btn"        id="wbBgGrid"   onclick="setWbBackground('grid')">⊞ Grid</button>
+        <button class="wb-bg-btn active" id="wbBgPlain" onclick="setWbBackground('plain')">Plain</button>
+        <button class="wb-bg-btn" id="wbBgLines" onclick="setWbBackground('lines')">Lines</button>
+        <button class="wb-bg-btn" id="wbBgGrid" onclick="setWbBackground('grid')">Grid</button>
         <span class="wb-sep"></span>
         <button onclick="wbDownload()">⬇ Save PNG</button>
       </div>
@@ -211,8 +211,7 @@
       <div id="emptyState" class="empty-state">
         <div class="icon">🧮</div>
         <p>Choose any factory from the left panel to generate a question.<br><br>
-        <strong>Run All &amp; Check</strong> tests every factory at once.<br><br>
-        <em>Italic entries are defined in the file but not currently in the TOPIC_MAP.</em></p>
+        <em>🔒 entries are Higher Tier Only and are not available at this tier.</em></p>
       </div>
       <div id="questionCard" class="q-card" style="display:none;">
         <div class="error-banner" id="errorBanner"></div>
@@ -8384,6 +8383,7 @@ function buildSidebar(filter){
   const list=document.getElementById('factoryList');
   list.innerHTML='';
   const topics=[...new Set(FACTORY_REGISTRY.map(f=>f.topic))];
+  let seqNum=0;
   topics.forEach(topic=>{
     const items=FACTORY_REGISTRY.map((f,i)=>({...f,i}))
       .filter(f=>f.topic===topic&&(!filter||f.name.toLowerCase().includes(filter)||f.prefix.toLowerCase().includes(filter)));
@@ -8392,19 +8392,20 @@ function buildSidebar(filter){
     const lbl=document.createElement('div');
     lbl.className='topic-label'; lbl.textContent=topic; grp.appendChild(lbl);
     items.forEach(({name,prefix,inMap,i})=>{
+      seqNum++;
       const btn=document.createElement('button');
       let cls='factory-btn';
       if(i===activeIndex) cls+=' active';
       if(!inMap) cls+=' not-in-map';
       if(testedSet.has(i)) cls+=errorSet.has(i)?' errored':' tested';
       btn.className=cls; btn.dataset.index=i;
-      btn.innerHTML='<span class="fnum">'+(i+1)+'</span><span class="fname">'+name+'</span><span class="fprefix">'+prefix+'</span>';
-      btn.onclick=()=>selectFactory(i);
+      const displayName=inMap?name:'🔒 '+name;
+      btn.innerHTML='<span class="fnum">'+seqNum+'</span><span class="fname">'+displayName+'</span><span class="fprefix">'+prefix+'</span>';
+      if(inMap) btn.onclick=()=>selectFactory(i);
       grp.appendChild(btn);
     });
     list.appendChild(grp);
   });
-  updateProgress();
 }
 function filterFactories(){ buildSidebar(document.getElementById('searchInput').value); }
 
@@ -8439,15 +8440,13 @@ function generateFromFactory(idx){
     document.getElementById('topbarTitle').textContent=entry.name;
     document.getElementById('topbarIdWrap').style.display='none';
     buildSidebar(document.getElementById('searchInput').value);
-    updateProgress(); return;
+    return;
   }
 
-  const inMapNote=entry.inMap?'':'<span class="not-in-map-badge">⊘ not in TOPIC_MAP</span>';
   document.getElementById('qMeta').innerHTML=
     '<span class="pill">'+(q.topic||'')+'</span>'+
     '<span class="pill">'+(q.skill||'')+'</span>'+
-    (q.difficulty?'<span class="pill diff">'+q.difficulty+'</span>':'')+
-    inMapNote;
+    (q.difficulty?'<span class="pill diff">'+q.difficulty+'</span>':'');
 
   document.getElementById('topbarTitle').textContent=entry.name;
   document.getElementById('topbarId').textContent=q.id||'—';
@@ -8488,7 +8487,6 @@ function generateFromFactory(idx){
 
   document.getElementById('qSolutionText').innerHTML=renderMath(q.solution||'');
   buildSidebar(document.getElementById('searchInput').value);
-  updateProgress();
 }
 
 function regenerate(){ if(activeIndex>=0) generateFromFactory(activeIndex); }
@@ -8513,24 +8511,7 @@ function lookupByPrefix(){
   if(match>=0) selectFactory(match);
   else alert('No factory found matching: '+prefix);
 }
-async function runAllFactories(){
-  const btn=document.getElementById('runAllBtn');
-  btn.disabled=true; btn.textContent='Running…';
-  testedSet.clear(); errorSet.clear();
-  for(let i=0;i<TOTAL;i++){
-    selectFactory(i);
-    await new Promise(r=>setTimeout(r,25));
-  }
-  btn.disabled=false;
-  const errs=errorSet.size;
-  if(errs===0){ btn.textContent='✓ All '+TOTAL+' passed!'; btn.style.background='#6ee09b'; btn.style.color='#0d2458'; }
-  else{ btn.textContent='⚠ '+errs+' error(s) found'; btn.style.background='#ff9999'; btn.style.color='#5a0000'; }
-}
-function updateProgress(){
-  const done=testedSet.size;
-  document.getElementById('progressText').textContent=done+' / '+TOTAL;
-  document.getElementById('progressFill').style.width=((done/TOTAL)*100)+'%';
-}
+
 buildSidebar();
 
 /* ============================================================
@@ -8637,6 +8618,7 @@ function drawQuestionPanel(ctx, q, panelW, showSolution) {
   var drawing=false, tool='pen', penSize=2, penColor='#1a1a2e';
   var history=[], historyLimit=50;
   var bgKind='plain';
+  var shapeStart=null, shapeSnap=null;
 
   function getPos(e){
     var r=canvas.getBoundingClientRect();
@@ -8649,22 +8631,52 @@ function drawQuestionPanel(ctx, q, panelW, showSolution) {
     history.push(canvas.toDataURL());
   }
   function startDraw(e){
-    e.preventDefault(); drawing=true;
-    saveHistory();
+    e.preventDefault(); saveHistory();
     var p=getPos(e);
-    ctx.beginPath(); ctx.moveTo(p.x,p.y);
+    drawing=true;
+    if(tool==='pen'||tool==='eraser'){
+      ctx.beginPath(); ctx.moveTo(p.x,p.y);
+    } else {
+      shapeStart=p; shapeSnap=canvas.toDataURL();
+    }
   }
   function doDraw(e){
     if(!drawing) return; e.preventDefault();
     var p=getPos(e);
-    ctx.lineWidth  = tool==='eraser' ? penSize*6 : penSize;
-    ctx.lineCap    = 'round'; ctx.lineJoin='round';
-    ctx.strokeStyle= tool==='eraser' ? 'rgba(0,0,0,1)' : penColor;
-    ctx.globalCompositeOperation = tool==='eraser' ? 'destination-out' : 'source-over';
-    ctx.lineTo(p.x,p.y); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(p.x,p.y);
+    if(tool==='pen'||tool==='eraser'){
+      ctx.lineWidth=tool==='eraser'?penSize*6:penSize;
+      ctx.lineCap='round'; ctx.lineJoin='round';
+      ctx.strokeStyle=tool==='eraser'?'rgba(0,0,0,1)':penColor;
+      ctx.globalCompositeOperation=tool==='eraser'?'destination-out':'source-over';
+      ctx.lineTo(p.x,p.y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p.x,p.y);
+    } else if(shapeStart&&shapeSnap){
+      var snap=shapeSnap, a=shapeStart;
+      var img=new Image();
+      img.onload=function(){ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0); drawShape(a,p); };
+      img.src=snap;
+    }
   }
-  function endDraw(){ drawing=false; ctx.globalCompositeOperation='source-over'; }
+  function endDraw(e){
+    if(!drawing) return; drawing=false;
+    ctx.globalCompositeOperation='source-over';
+    if(tool!=='pen'&&tool!=='eraser'&&shapeStart){
+      var p=e&&e.type!=='mouseleave'?getPos(e):shapeStart;
+      drawShape(shapeStart,p); shapeStart=null; shapeSnap=null;
+    }
+  }
+  function drawShape(a,b){
+    ctx.save(); ctx.strokeStyle=penColor; ctx.lineWidth=penSize;
+    ctx.lineCap='round'; ctx.lineJoin='round'; ctx.globalCompositeOperation='source-over';
+    ctx.beginPath();
+    if(tool==='line'){ ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); }
+    else if(tool==='rect'){ ctx.rect(a.x,a.y,b.x-a.x,b.y-a.y); }
+    else if(tool==='circle'){
+      var cx=(a.x+b.x)/2,cy=(a.y+b.y)/2,rx=Math.abs(b.x-a.x)/2,ry=Math.abs(b.y-a.y)/2;
+      ctx.ellipse(cx,cy,Math.max(rx,1),Math.max(ry,1),0,0,Math.PI*2);
+    }
+    ctx.stroke(); ctx.restore();
+  }
 
   function drawBackground(){
     if(!bgCtx) return;
@@ -8725,7 +8737,7 @@ function drawQuestionPanel(ctx, q, panelW, showSolution) {
     canvas.addEventListener('touchstart',startDraw,{passive:false});
     canvas.addEventListener('touchmove',doDraw,{passive:false});
     canvas.addEventListener('touchend',endDraw);
-    document.getElementById('wbColor').addEventListener('input',function(e){penColor=e.target.value;});
+
   };
 
   window.toggleWhiteboard=function(){
@@ -8740,9 +8752,6 @@ function drawQuestionPanel(ctx, q, panelW, showSolution) {
     var wb=document.getElementById('whiteboardArea');
     wb.classList.add('visible');
     document.getElementById('wbBtn').classList.add('active');
-    document.querySelectorAll('.factory-btn').forEach(function(b){b.classList.remove('active');});
-    activeIndex=-1;
-    buildSidebar(document.getElementById('searchInput').value);
     if(!ctx){ window.initWhiteboard(); }
     requestAnimationFrame(resizeCanvas);
   };
@@ -8755,12 +8764,15 @@ function drawQuestionPanel(ctx, q, panelW, showSolution) {
     ['wbS1','wbS2','wbS3'].forEach(function(id){document.getElementById(id).classList.remove('active');});
     btn.classList.add('active');
   };
-  window.setWbTool=function(t){
+  window.setWbTool=function(t,btn){
     tool=t;
-    document.getElementById('wbPenBtn').style.background   = t==='pen'?'#e8f0ff':'#fff';
-    document.getElementById('wbPenBtn').style.borderColor  = t==='pen'?'#2c4fa3':'#bbb';
-    document.getElementById('wbEraserBtn').style.background= t==='eraser'?'#fff0e0':'#fff';
-    document.getElementById('wbEraserBtn').style.borderColor=t==='eraser'?'#e06000':'#bbb';
+    document.querySelectorAll('.wb-tool-btn').forEach(function(b){b.classList.remove('active');});
+    if(btn) btn.classList.add('active');
+  };
+  window.setWbColor=function(color,btn){
+    penColor=color;
+    document.querySelectorAll('.wb-color-btn').forEach(function(b){b.classList.remove('active');});
+    if(btn) btn.classList.add('active');
   };
   window.setWbBackground=function(kind){
     bgKind=kind;
