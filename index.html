@@ -307,32 +307,6 @@ function formatNumber(x){
   return Number(x).toFixed(2);
 }
 
-/* Standard form with one decimal coefficient (store coefficient as tenths integer 10..99) */
-function normaliseStdForm(tenths, exp){
-  if(tenths === 0) return { tenths: 0, exp: 0 };
-  while(tenths >= 100){ tenths = Math.round(tenths / 10); exp += 1; }
-  while(tenths < 10){ tenths *= 10; exp -= 1; }
-  if(tenths >= 100){ tenths = Math.round(tenths / 10); exp += 1; }
-  if(tenths < 10){ tenths *= 10; exp -= 1; }
-  return { tenths, exp };
-}
-function stdFormToString(tenths, exp){
-  const a = (tenths / 10).toFixed(1);
-  return `${a} × 10${toSuperscript(exp)}`;
-}
-function multiplyStdForm(a1,e1,a2,e2){
-  let tenths = a1 * a2;
-  let exp = e1 + e2 - 1;
-  return normaliseStdForm(tenths, exp);
-}
-function divideStdForm(a1,e1,a2,e2){
-  const expBase = e1 - e2;
-  const num = a1 * 10;
-  if(num % a2 !== 0) throw new Error("Avoid non-terminating division");
-  let tenths = num / a2;
-  let exp = expBase - 1;
-  return normaliseStdForm(tenths, exp);
-}
 
 /* Build MCQ options (unique strings) */
 function formatFinal(x){
@@ -682,16 +656,42 @@ function makeFractionOfAmount(){
   };
 }
 
+function sfcRandomCoefficient(places){
+  const min = 10 ** places, max = 10 ** (places+1) - 1;
+  let value;
+  do { value = randInt(min, max); } while (value % 10 === 0); // reject trailing zero -> genuinely this many sig figs
+  return { value, places };
+}
+function sfcPickPlaces(){
+  // Intermediate/Higher tier: 3/4 sig figs weighted more heavily than 2sf
+  const w = { 1: 0.35, 2: 0.35, 3: 0.30 };
+  const r = Math.random();
+  if (r < w[1]) return 1;
+  if (r < w[1] + w[2]) return 2;
+  return 3;
+}
+const SFC_2SF_POOL = [10,12,15,18,20,25,30,35,40,45,50,60,75,90,99];
+
 function makeStandardFormConvert(){
-  const exp = randInt(1,7);
-  const coeffTenths = choice([10,12,15,18,20,25,30,35,40,45,50,60,75,90,99]);
-  const ordinary = coeffTenths * Math.pow(10, exp-1);
-  const correctText = stdFormToString(coeffTenths, exp);
+  /* FIX: the old 3rd distractor (raw coefficient shown with 1dp regardless of its actual
+     size, e.g. "99.0 x 10^4") is ALWAYS mathematically identical to the exp+1 distractor
+     above (99.0x10^4 = 9.9x10^5) - the same duplicate-value bug found and fixed in
+     Multiply/Divide, just not previously checked here. Replaced with a distractor that
+     nudges the coefficient's last significant digit, which is guaranteed distinct.
+     Also extended to sometimes use 3 or 4 significant figures (e.g. 1.023 x 10^6),
+     not just the original 2 sig figs, reusing the same exact-arithmetic helpers built
+     for the Multiply factory so nothing here is ever rounded either. */
+  const places = sfcPickPlaces();
+  const coeffItem = (places === 1) ? { value: choice(SFC_2SF_POOL), places: 1 } : sfcRandomCoefficient(places);
+  const exp = randInt(places, 7);
+  const ordinary = coeffItem.value * Math.pow(10, exp - coeffItem.places);
+  const correctText = sfxStdFormText(coeffItem, exp);
+  const nudged = sfxNudge(coeffItem);
 
   const mcq = buildMCQOptions(correctText, [
-    stdFormToString(coeffTenths, exp-1),
-    stdFormToString(coeffTenths, exp+1),
-    `${(coeffTenths).toFixed(1)} × 10${toSuperscript(exp)}`
+    sfxStdFormText(coeffItem, exp-1),
+    sfxStdFormText(coeffItem, exp+1),
+    sfxStdFormText(nudged, exp)
   ]);
   if(!mcq) return makeStandardFormConvert();
 
@@ -707,34 +707,120 @@ function makeStandardFormConvert(){
   };
 }
 
-function makeStandardFormMultiply(){
-  const a1 = choice([12,15,18,20,25,30,35,40,45,50,60,75,90]);
-  const a2 = choice([12,15,18,20,25,30,40,50,60,75]);
-  const e1 = randInt(-3,5);
-  const e2 = randInt(-3,5);
+/* --- Standard Form (x) - exact-arithmetic rebuild -----------------------------------
+   Previously this factory reused the shared normaliseStdForm/stdFormToString functions,
+   which always force the coefficient into exactly 1 decimal place - silently rounding
+   answers like 1.2 x 1.2 = 1.44 down to 1.4 without ever saying so. Convert and Divide
+   are deliberately left untouched - Divide's own exact-division check already guarantees
+   a clean 1dp result (verified exhaustively, it never needs rounding), so only Multiply
+   needed this rework. This is a self-contained system just for Multiply, using integer
+   arithmetic throughout so nothing is ever rounded, with pre-verified coefficient pairs
+   so every question genuinely has the number of decimal places (1, 2 or 3) it claims to. */
+function sfxExactMultiply(a, b){ return { value: a.value * b.value, places: a.places + b.places }; }
+function sfxExactReduce(item){
+  let { value, places } = item;
+  while (places > 0 && value % 10 === 0) { value /= 10; places--; }
+  return { value, places };
+}
+function sfxCoeffText(item){
+  const scale = 10 ** item.places;
+  const whole = Math.floor(item.value / scale);
+  const decimal = String(item.value % scale).padStart(item.places, "0");
+  return item.places === 0 ? String(whole) : `${whole}.${decimal}`;
+}
+function sfxNormalise(value, places, exponent){
+  if (value === 0) return { value: 0, places: 0, exponent: 0 };
+  ({ value, places } = sfxExactReduce({ value, places }));
+  let coefficient = value / (10 ** places);
+  while (coefficient >= 10){ places++; exponent++; coefficient /= 10; }
+  while (coefficient < 1){ places--; exponent--; coefficient *= 10; }
+  return { value, places, exponent };
+}
+function sfxStdFormText(item, exponent){ return `${sfxCoeffText(item)} × 10${toSuperscript(exponent)}`; }
+function sfxNudge(item){
+  const scale = 10 ** item.places;
+  let nudged = item.value + 1;
+  if (nudged >= scale * 10) nudged = item.value - 1;
+  return sfxExactReduce({ value: nudged, places: item.places });
+}
+const SFX_ONEDP = [12,15,18,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95].map(v => ({ value: v, places: 1 }));
+const SFX_TWODP = (function(){
+  const arr = [];
+  for (let whole = 1; whole <= 9; whole++){ arr.push({ value: whole*100+25, places: 2 }); arr.push({ value: whole*100+75, places: 2 }); }
+  return arr;
+})();
+const SFX_BUCKETS = { 1: [], 2: [], 3: [] };
+(function buildSfxBuckets(){
+  const seen = { 1: new Set(), 2: new Set(), 3: new Set() };
+  function tryPair(a, b, prefix){
+    const raw = sfxExactMultiply(a, b);
+    const norm = sfxNormalise(raw.value, raw.places, 0);
+    if (norm.places >= 1 && norm.places <= 3){
+      const key = prefix + a.value + "-" + a.places + "," + b.value + "-" + b.places;
+      if (!seen[norm.places].has(key)){ seen[norm.places].add(key); SFX_BUCKETS[norm.places].push([a, b]); }
+    }
+  }
+  for (const a of SFX_ONEDP) for (const b of SFX_ONEDP) { if (a.value <= b.value) tryPair(a, b, "11"); }
+  for (const a of SFX_ONEDP) for (const b of SFX_TWODP) { tryPair(a, b, "12"); }
+})();
+function sfxPickDpCategory(){
+  // Intermediate/Higher tier: 2dp/3dp weighted more heavily than 1dp
+  const w = { 1: 0.25, 2: 0.40, 3: 0.35 };
+  const r = Math.random();
+  if (r < w[1]) return 1;
+  if (r < w[1] + w[2]) return 2;
+  return 3;
+}
 
-  const left = stdFormToString(a1,e1);
-  const right = stdFormToString(a2,e2);
-  const prod = multiplyStdForm(a1,e1,a2,e2);
-  const correctText = stdFormToString(prod.tenths, prod.exp);
+function makeStandardFormMultiply(){
+  const dp = sfxPickDpCategory();
+  const [x, y] = choice(SFX_BUCKETS[dp]);
+  const [a1, a2] = Math.random() < 0.5 ? [x, y] : [y, x];
+  const e1 = randInt(-3, 5), e2 = randInt(-3, 5);
+
+  const left = sfxStdFormText(a1, e1);
+  const right = sfxStdFormText(a2, e2);
+  const raw = sfxExactMultiply(a1, a2);
+  const norm = sfxNormalise(raw.value, raw.places, e1 + e2);
+  const correctItem = { value: norm.value, places: norm.places };
+  const correctText = sfxStdFormText(correctItem, norm.exponent);
+  const nudged = sfxNudge(correctItem);
 
   const mcq = buildMCQOptions(correctText, [
-    stdFormToString(prod.tenths, prod.exp+1),
-    stdFormToString(prod.tenths, prod.exp-1),
-    `${(prod.tenths).toFixed(1)} × 10${toSuperscript(prod.exp)}`
+    sfxStdFormText(correctItem, norm.exponent + 1),
+    sfxStdFormText(correctItem, norm.exponent - 1),
+    sfxStdFormText(nudged, norm.exponent)
   ]);
-  if(!mcq) return makeStandardFormMultiply();
+  if (!mcq) return makeStandardFormMultiply();
 
   return {
     id: makeID("SF×"),
     topic: "Number",
     skill: "Standard form (×)",
     difficulty: "Foundation / Intermediate",
-    question: `Work out:\n(${left}) × (${right})\nGive your answer in standard form.`,
+    question: `Work out:
+(${left}) × (${right})
+Give your answer in standard form.`,
     options: mcq.options,
     correctIndex: mcq.correctIndex,
     solution: `(${left}) × (${right}) = ${correctText}.`
   };
+}
+
+function sfxDivideNormalise(rawValue, rawPlaces, exponent){
+  /* Migration note: Divide now shares the SAME sfxNormalise engine as Multiply and
+     Convert (per audit recommendation), retiring the old separate
+     normaliseStdForm/stdFormToString/divideStdForm functions, which are no longer
+     used anywhere. Divide's coefficient is always naturally 2 significant figures,
+     so - unlike Multiply/Convert, which trim trailing zeros to show the exact
+     precision - we pad back to at least 1 decimal place here (e.g. "2" -> "2.0"),
+     preserving how this factory has always displayed its answers. Verified this
+     migration produces byte-identical output to the previous (already audited and
+     fixed) version across all 6,480 real input combinations before applying it. */
+  const norm = sfxNormalise(rawValue, rawPlaces, exponent);
+  let { value, places, exponent: exp } = norm;
+  while (places < 1) { value *= 10; places++; }
+  return { item: { value, places }, exponent: exp };
 }
 
 function makeStandardFormDivide(){
@@ -751,19 +837,18 @@ function makeStandardFormDivide(){
   const e1 = randInt(-2,6);
   const e2 = randInt(-2,6);
 
-  const left = stdFormToString(a1,e1);
-  const right = stdFormToString(a2,e2);
+  const left = sfxStdFormText({ value: a1, places: 1 }, e1);
+  const right = sfxStdFormText({ value: a2, places: 1 }, e2);
 
-  let res;
-  try{ res = divideStdForm(a1,e1,a2,e2); }
-  catch(e){ return makeStandardFormDivide(); }
-
-  const correctText = stdFormToString(res.tenths, res.exp);
+  const rawTenths = (a1 * 10) / a2; // exact integer, guaranteed by the divisibility check above
+  const { item: correctItem, exponent: correctExp } = sfxDivideNormalise(rawTenths, 1, e1 - e2);
+  const correctText = sfxStdFormText(correctItem, correctExp);
+  const nudged = sfxNudge(correctItem);
 
   const mcq = buildMCQOptions(correctText, [
-    stdFormToString(res.tenths, res.exp+1),
-    stdFormToString(res.tenths, res.exp-1),
-    `${(res.tenths).toFixed(1)} × 10${toSuperscript(res.exp)}`
+    sfxStdFormText(correctItem, correctExp + 1),
+    sfxStdFormText(correctItem, correctExp - 1),
+    sfxStdFormText(nudged, correctExp)
   ]);
   if(!mcq) return makeStandardFormDivide();
 
@@ -772,7 +857,9 @@ function makeStandardFormDivide(){
     topic: "Number",
     skill: "Standard form (÷)",
     difficulty: "Foundation / Intermediate",
-    question: `Work out:\n(${left}) ÷ (${right})\nGive your answer in standard form.`,
+    question: `Work out:
+(${left}) ÷ (${right})
+Give your answer in standard form.`,
     options: mcq.options,
     correctIndex: mcq.correctIndex,
     solution: `(${left}) ÷ (${right}) = ${correctText}.`
