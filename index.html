@@ -206,7 +206,7 @@
     .frac .num{border-bottom:1.5px solid currentColor;padding:0 2px 1px;text-align:center;min-width:1ch;}
     .frac .den{padding:1px 2px 0;text-align:center;min-width:1ch;}
     .mixed-frac{display:inline-flex;align-items:center;vertical-align:middle;gap:.1em;}
-    @media(max-width:680px){.app{flex-direction:column;}.sidebar{width:100%;height:auto;max-height:42vh;}.main{height:auto;}}
+    @media(max-width:680px){.app{flex-direction:column;}.sidebar{width:100%;height:auto;max-height:42vh;}.main{height:auto;}.main #whiteboardArea{height:auto;}#whiteboardArea #wbCanvasWrap{flex:none;height:60vh;}}
     /* Whiteboard */
     .wb-btn{display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;background:rgba(255,255,255,0.1);border:none;color:#fff;cursor:pointer;font-size:0.88rem;font-weight:700;text-align:left;border-bottom:1px solid rgba(255,255,255,0.12);transition:background 0.15s;}
     .wb-btn:hover,.wb-btn.active{background:rgba(255,255,255,0.22);}
@@ -701,7 +701,7 @@ function makeRatioSimplify(){
     const g = gcd(a,b);
 
     const correctText = `${a/g} : ${b/g}`;
-    const mcq = buildMCQOptions(correctText, [`${a}:${b}`, `${a/g}:${b}`, `${a}:${b/g}`]);
+    const mcq = buildMCQOptions(correctText, [`${a} : ${b}`, `${a/g} : ${b}`, `${a} : ${b/g}`]);
     if(!mcq) return makeRatioSimplify();
 
     return {
@@ -730,9 +730,9 @@ function makeRatioSimplify(){
 
   const correctText = `${a/g} : ${b/g} : ${c/g}`;
   const gAB = gcd(a,b);
-  const wrong1 = `${a}:${b}:${c}`;
-  const wrong2 = `${a/g}:${b/g}:${c}`;
-  const wrong3 = `${a/gAB}:${b/gAB}:${c}`;
+  const wrong1 = `${a} : ${b} : ${c}`; // audit fix: same spacing as the correct option (was a giveaway)
+  const wrong2 = `${a/g} : ${b/g} : ${c}`;
+  const wrong3 = `${a/gAB} : ${b/gAB} : ${c}`;
   const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
   if(!mcq) return makeRatioSimplify();
 
@@ -1419,7 +1419,7 @@ function makeCompoundPercent(){
     fNum *= multNum; fDen *= multDen;
   }
   const g = gcd(fNum, fDen); fNum /= g; fDen /= g;
-  const finalVal = Math.round((fNum / fDen) * 100) / 100;
+  const finalVal = Math.floor((200 * fNum + fDen) / (2 * fDen)) / 100; // audit fix: exact half-up rounding (514.425 -> 514.43)
   const linearVal = direction === "increase"
     ? Math.round(start * (1 + years * pctObj.n / pctObj.d) * 100) / 100
     : Math.round(start * (1 - years * pctObj.n / pctObj.d) * 100) / 100;
@@ -1664,7 +1664,7 @@ function makeRatioShare(){
     options: mcq.options, correctIndex: mcq.correctIndex,
     solution:
       `Cost per ${liq.unit.replace(/s$/,"")} = £${y}.00 ÷ ${x} = ${moneyFromPence(Math.round(y*100/x))} (per ${liq.unit.replace(/s$/,"")}).\n` +
-      `Cost of ${z} ${liq.unit} = ${z} × ${moneyFromPence(Math.round(y*100/x))} = ${correct}`
+      `Cost of ${z} ${liq.unit} = £${y}.00 ÷ ${x} × ${z} = ${correct}` + ((y*100) % x !== 0 ? `\n(Use the exact cost per ${liq.unit.replace(/s$/,"")}, not the rounded value, in the final step.)` : ``)
   };
 }
 
@@ -2177,7 +2177,7 @@ function makeMixedPercentRatio(){
 
   const correctText = moneyFromPence(newSharePence);
   const wrong1 = moneyFromPence(firstSharePence);
-  const wrong2 = moneyFromPence((totalPence * multNum) / multDen);
+  const wrong2 = moneyFromPence(Math.round((totalPence * multNum) / multDen));
   const wrong3 = moneyFromPence(ratioB * unitPence);
 
   const mcq = buildMCQOptions(correctText, [wrong1, wrong2, wrong3]);
@@ -2443,7 +2443,7 @@ function makeLCMApplication2(){
     const nextTime = addMinutes(bp.start, L);
     const answer = nextTime;
     const w1 = addMinutes(bp.start, bp.aMin * bp.bMin);
-    const w2 = addMinutes(bp.start, L/2 >= bp.aMin ? L/2 : L+5);
+    const w2 = addMinutes(bp.start, L/2 >= bp.aMin && Number.isInteger(L/2) ? L/2 : L+5); // audit fix: avoided '10:37.5 am'
     const w3 = addMinutes(bp.start, L + bp.aMin);
     const mcq = buildMCQOptions(answer, [w1, w2, w3]);
     if(!mcq) return makeLCMApplication2();
@@ -2577,7 +2577,7 @@ function makeLCMApplication3(){
     function addMinutes(startStr, mins){
       const map = {"9 am":9*60,"10 am":10*60,"11 am":11*60,"8 am":8*60,"noon":12*60,"12 pm":12*60};
       const base = map[startStr] || 9*60;
-      const total = base + mins;
+      const total = (base + mins) % 1440; // audit fix: wrap past midnight (was showing '53 pm')
       const h = Math.floor(total/60);
       const m = total % 60;
       const period = h < 12 ? "am" : "pm";
@@ -2700,7 +2700,7 @@ function makeFindNumbersFromHCFLCM(){
 
   // Distractors: wrong pairs
   const w1 = `${hcf} and ${lcm}`;
-  const w2 = `${ansA * 2} and ${ansB / 2}`;
+  const w2 = `${ansA * 2} and ${ansB * 2}`; // audit fix: halving gave non-integers and duplicated w3 reversed
   const w3 = `${hcf * 2} and ${lcm / 2}`;
   const mcq = buildMCQOptions(answer, [w1, w2, w3]);
   if(!mcq) return makeFindNumbersFromHCFLCM();
@@ -3310,7 +3310,7 @@ function makeFactoriseCommonFactorQuestion(){
   do {
     a = randInt(2, 9);
     b = nonZeroInt(-9, 9);
-  } while (gcd(a, b) !== 1);
+  } while (gcd(a, b) !== 1 || a === k * k);
 
   const term1Coeff = k * a;
   const term2Coeff = k * b;
@@ -3707,6 +3707,7 @@ function makeEquationTwoStepQuestion(){
     d2 = choice([2,3,4,5,6]);
     if(d1 === d2) continue;
     L = lcmOf(d1, d2);
+    if (a*(L/d1) === L/d2) continue; // audit fix: x-terms cancel (identity / no unique solution)
     const totalNumerator = (a*n + b)*(L/d1) - n*(L/d2);
     if(totalNumerator % L !== 0) continue;
     c = totalNumerator / L;
@@ -4227,7 +4228,7 @@ function makeEquationCreatingQuestion(){
       topic: "Algebra",
       skill: "Equations – creating",
       difficulty: "Foundation / Intermediate",
-      question: `I think of a number, x. I multiply it by ${a}, then ${addOrSub}. The result is ${c}.<br>Which equation represents this, and what is the number?`,
+      question: `I think of a number, x. I multiply it by ${a}, then ${addOrSub}. The result is ${c}.<br>Which equation represents this?`,
       options: mcq.options,
       correctIndex: mcq.correctIndex,
       solution:
@@ -4345,9 +4346,8 @@ function makeAlgebraicFractionSimplifyQuestion(){
     return {
       id: makeID("ALG"), topic: "Algebra", skill: "Simplifying algebraic fractions", difficulty: "Foundation / Intermediate",
       question: `Simplify: x²/x`,
-      options: buildMCQOptions('x', ['x²','1/x','x³'])?.options || ['x','x²','1/x','x³'],
-      correctIndex: buildMCQOptions('x', ['x²','1/x','x³'])?.correctIndex ?? 0,
-      solution: `Subtract the powers of x: x² ÷ x = x(2−1) = x`
+      ...(function(){ const m = buildMCQOptions('x', ['x²','1/x','x³']); return { options: m.options, correctIndex: m.correctIndex }; })(), // audit fix: options and correctIndex came from two different shuffles
+      solution: `Subtract the powers of x: x² ÷ x = x²⁻¹ = x`
     };
   }
   if(qType === 2){
@@ -4515,9 +4515,9 @@ function makeAlgebraicFractionSimplifyQuestion(){
     // Answer: if rD=1 just sc10(rN)·x^powX, else (rN·x^powX)/rD
     const ansBody10 = `${sc10(rN)}${sv10("x",powX)}`.replace(/^1(?=x)/,"") || "1";
     const ansStr10 = rD===1 ? ansBody10 : `(${ansBody10})/${rD}`;
-    const w1_10 = rD===1 ? `${sc10(ba)}${sv10("x",powX)}` : `(${sc10(ba)}${sv10("x",powX)})/${na*pa}`;
+    const w1_10 = rD===1 ? `${sc10(ba)}${sv10("x",powX)}` : `(${sc10(rN)}${sv10("x",cc+mc)})/${rD}`;
     const w2_10 = rD===1 ? `${sc10(rN)}${sv10("x",powX+1)}` : `(${sc10(rN)}${sv10("x",powX+1)})/${rD}`;
-    const w3_10 = rD===1 ? `${sc10(aa*ba)}${sv10("x",powX)}` : `(${sc10(aa)}${sc10(ba)}${sv10("x",powX)})/${rD}`;
+    const w3_10 = rD===1 ? `${sc10(aa*ba)}${sv10("x",powX)}` : `(${sc10(aa*ba)}${sv10("x",powX)})/${rD}`;
     const mcq = buildMCQOptions(ansStr10, [w1_10, w2_10, w3_10]);
     if(!mcq) return makeAlgebraicFractionSimplifyQuestion();
     return {
@@ -4597,7 +4597,7 @@ function makeAlgebraicFractionMultiplyDivideQuestion(){
         `Multiply numerators: ${A}${vp(nP)} × ${C} = ${numCoef}${vp(nP)}\n` +
         `Multiply denominators: ${B} × ${D}${vp(mP)} = ${denCoef}${vp(mP)}\n` +
         `Fraction = ${numCoef}${vp(nP)} / (${denCoef}${vp(mP)})\n` +
-        `Simplify coefficients ${numCoef}/${denCoef} = ${f.toFractionString()} and subtract powers of ${v}: ${vp(nP)} ÷ ${vp(mP)} = ${powDiff>=0?vp(powDiff):`1/${vp(Math.abs(powDiff))}`}\n` +
+        `Simplify coefficients ${numCoef}/${denCoef} = ${f.toFractionString()} and subtract powers of ${v}: ${vp(nP)} ÷ ${vp(mP)} = ${powDiff>0?vp(powDiff):powDiff===0?'1':`1/${vp(Math.abs(powDiff))}`}\n` +
         `= ${correctText}`
     };
   }
@@ -4640,7 +4640,7 @@ function makeAlgebraicFractionMultiplyDivideQuestion(){
       `(${A}${vp(nP)}/${B}) × (${D}/${C}${vp(mP)})\n` +
       `Multiply numerators: ${A}${vp(nP)} × ${D} = ${numCoef}${vp(nP)}\n` +
       `Multiply denominators: ${B} × ${C}${vp(mP)} = ${denCoef}${vp(mP)}\n` +
-      `Simplify: ${numCoef}/${denCoef} = ${f.toFractionString()} and ${vp(nP)} ÷ ${vp(mP)} = ${powDiff>=0?vp(powDiff):`1/${vp(Math.abs(powDiff))}`}\n` +
+      `Simplify: ${numCoef}/${denCoef} = ${f.toFractionString()} and ${vp(nP)} ÷ ${vp(mP)} = ${powDiff>0?vp(powDiff):powDiff===0?'1':`1/${vp(Math.abs(powDiff))}`}\n` +
       `= ${correctText}`
   };
 }
@@ -4676,7 +4676,7 @@ function makeAlgebraicFractionEquationQuestion(){
   // Don't suppress B or D denominators (they're denominators, always show)
   // Suppress numerator A or C if ±1
   const lhsQ = `(${A===1?"":A===-1?"-":String(A)}p)/${B}`;
-  const rhsQ = `(${C===1?"":C===-1?"-":String(C)})/${D}`;
+  const rhsQ = `${C}/${D}`; // audit fix: a constant numerator of ±1 was shown as "()" or "(-)"
   // Step 1: × B both sides  → Ap = BC/D
   const step1Num = B * C, step1Den = D;
   const gS1 = gcd(Math.abs(step1Num), Math.abs(step1Den));
@@ -4693,10 +4693,8 @@ function makeAlgebraicFractionEquationQuestion(){
     question: `Solve: ${lhsQ} = ${rhsQ}`,
     options: mcq.options, correctIndex: mcq.correctIndex,
     solution:
-      `Multiply both sides by ${B}:\n` +
-      `${showA(A,'p')} = ${B} × ${rhsQ} = ${step1RHS}\n` +
-      `Multiply both sides by ${D}:\n` +
-      `${A*D}p = ${B*C}\n` +
+      `Multiply both sides by ${B} × ${D} = ${B*D}:\n` +
+      `${showA(A*D,'p')} = ${B*C}\n` +
       `p = ${B*C} ÷ ${A*D} = ${x}`
   };
 }
@@ -5087,10 +5085,10 @@ function makeTrialImprovementQuestion(){
   const below = rounded - 0.5/factor;
   const above = rounded + 0.5/factor;
   if(!(f(below) < target && f(above) > target)) return makeTrialImprovementQuestion();
-  const correctText = rounded.toFixed(dp);
-  const d1 = (rounded + 1/factor).toFixed(dp);
-  const d2 = (rounded - 1/factor).toFixed(dp);
-  const d3 = (rounded + 2/factor).toFixed(dp);
+  const correctText = `${L} = ${rounded.toFixed(dp)}`; // audit fix: keep the requested number of d.p. (plain numbers were padded to 2 d.p.)
+  const d1 = `${L} = ${(rounded + 1/factor).toFixed(dp)}`;
+  const d2 = `${L} = ${(rounded - 1/factor).toFixed(dp)}`;
+  const d3 = `${L} = ${(rounded + 2/factor).toFixed(dp)}`;
   const mcq = buildMCQOptions(correctText, [d1,d2,d3]);
   if(!mcq) return makeTrialImprovementQuestion();
   return {
@@ -5104,7 +5102,7 @@ function makeTrialImprovementQuestion(){
     solution:
       `Using trial and improvement (or iteration) between ${low} and ${high}:\n` +
       `The solution is approximately ${L} = ${root.toFixed(dp+2)} (more decimal places shown for working)\n` +
-      `Correct to ${dp} decimal place${dp>1?'s':''}: ${L} = ${correctText}`
+      `Correct to ${dp} decimal place${dp>1?'s':''}: ${correctText}`
   };
 }
 
@@ -6044,7 +6042,7 @@ function makeTrigFindSideQuestion(){
       diagram: drawTrigDiagram('?', '', `${hyp} cm`, 'sin', orientation),
       options: mcq.options,
       correctIndex: mcq.correctIndex,
-      solution: `Using SOH:\nsin \u03b8 = opposite \u00f7 hypotenuse\nopposite = hypotenuse \u00d7 sin \u03b8\n= ${hyp} \u00d7 sin(${angle}\u00b0)\n= ${hyp} \u00d7 ${dp1(sinA)}\n= ${opp} cm`
+      solution: `Using SOH:\nsin \u03b8 = opposite \u00f7 hypotenuse\nopposite = hypotenuse \u00d7 sin \u03b8\n= ${hyp} \u00d7 sin(${angle}\u00b0)\n= ${hyp} \u00d7 ${Number(sinA).toFixed(4)}\n= ${opp} cm`
     };
   }
 
@@ -6066,7 +6064,7 @@ function makeTrigFindSideQuestion(){
       diagram: drawTrigDiagram('', '?', `${hyp} cm`, 'cos', orientation),
       options: mcq.options,
       correctIndex: mcq.correctIndex,
-      solution: `Using CAH:\ncos \u03b8 = adjacent \u00f7 hypotenuse\nadjacent = hypotenuse \u00d7 cos \u03b8\n= ${hyp} \u00d7 cos(${angle}\u00b0)\n= ${hyp} \u00d7 ${dp1(cosA)}\n= ${adj} cm`
+      solution: `Using CAH:\ncos \u03b8 = adjacent \u00f7 hypotenuse\nadjacent = hypotenuse \u00d7 cos \u03b8\n= ${hyp} \u00d7 cos(${angle}\u00b0)\n= ${hyp} \u00d7 ${Number(cosA).toFixed(4)}\n= ${adj} cm`
     };
   }
 
@@ -6087,7 +6085,7 @@ function makeTrigFindSideQuestion(){
     diagram: drawTrigDiagram('?', `${adj2} cm`, '', 'tan', orientation),
     options: mcq.options,
     correctIndex: mcq.correctIndex,
-    solution: `Using TOA:\ntan \u03b8 = opposite \u00f7 adjacent\nopposite = adjacent \u00d7 tan \u03b8\n= ${adj2} \u00d7 tan(${angle}\u00b0)\n= ${adj2} \u00d7 ${dp1(tanA)}\n= ${opp2} cm`
+    solution: `Using TOA:\ntan \u03b8 = opposite \u00f7 adjacent\nopposite = adjacent \u00d7 tan \u03b8\n= ${adj2} \u00d7 tan(${angle}\u00b0)\n= ${adj2} \u00d7 ${Number(tanA).toFixed(4)}\n= ${opp2} cm`
   };
 }
 
@@ -6116,7 +6114,7 @@ function makeTrigFindAngleQuestion(){
       diagram: drawTrigDiagram(`${opp} cm`, '', `${hyp} cm`, 'sin', orientation),
       options: mcq.options,
       correctIndex: mcq.correctIndex,
-      solution: `Using SOH:\nsin \u03b8 = opposite \u00f7 hypotenuse\nsin \u03b8 = ${opp} \u00f7 ${hyp} = ${dp1(opp/hyp)}\n\u03b8 = sin\u207b\u00b9(${dp1(opp/hyp)}) = ${angle}\u00b0`
+      solution: `Using SOH:\nsin \u03b8 = opposite \u00f7 hypotenuse\nsin \u03b8 = ${opp} \u00f7 ${hyp} = ${Number(opp/hyp).toFixed(4)}\n\u03b8 = sin\u207b\u00b9(${Number(opp/hyp).toFixed(4)}) = ${angle}\u00b0`
     };
   }
 
@@ -6138,7 +6136,7 @@ function makeTrigFindAngleQuestion(){
       diagram: drawTrigDiagram('', `${adj} cm`, `${hyp} cm`, 'cos', orientation),
       options: mcq.options,
       correctIndex: mcq.correctIndex,
-      solution: `Using CAH:\ncos \u03b8 = adjacent \u00f7 hypotenuse\ncos \u03b8 = ${adj} \u00f7 ${hyp} = ${dp1(adj/hyp)}\n\u03b8 = cos\u207b\u00b9(${dp1(adj/hyp)}) = ${angle}\u00b0`
+      solution: `Using CAH:\ncos \u03b8 = adjacent \u00f7 hypotenuse\ncos \u03b8 = ${adj} \u00f7 ${hyp} = ${Number(adj/hyp).toFixed(4)}\n\u03b8 = cos\u207b\u00b9(${Number(adj/hyp).toFixed(4)}) = ${angle}\u00b0`
     };
   }
 
@@ -6161,7 +6159,7 @@ function makeTrigFindAngleQuestion(){
     diagram: drawTrigDiagram(`${opp2} cm`, `${adj2} cm`, '', 'tan', orientation),
     options: mcq.options,
     correctIndex: mcq.correctIndex,
-    solution: `Using TOA:\ntan \u03b8 = opposite \u00f7 adjacent\ntan \u03b8 = ${opp2} \u00f7 ${adj2} = ${dp1(opp2/adj2)}\n\u03b8 = tan\u207b\u00b9(${dp1(opp2/adj2)}) = ${angle2}\u00b0`
+    solution: `Using TOA:\ntan \u03b8 = opposite \u00f7 adjacent\ntan \u03b8 = ${opp2} \u00f7 ${adj2} = ${Number(opp2/adj2).toFixed(4)}\n\u03b8 = tan\u207b\u00b9(${Number(opp2/adj2).toFixed(4)}) = ${angle2}\u00b0`
   };
 }
 
@@ -6389,7 +6387,7 @@ function makeCombinedStatsConditionsQuestion(){
       rangeText: "whole numbers between 0 and 20 inclusive",
       conditions: ["Median of 8", "Range of 10", "Mean of 9"],
       correct: [5,7,9,15],
-      wrongs: [[3,7,9,13], [5,8,8,15], [4,7,9,14]],
+      wrongs: [[3,7,9,13], [6,7,9,16], [4,7,9,14]], // audit fix: [5,8,8,15] also met every condition
       solutionLines: [
         "Ordered numbers: 5, 7, 9, 15",
         "Median = (7 + 9) ÷ 2 = 8",
@@ -6519,12 +6517,12 @@ How many times would you expect it to land on blue?`,
 
 function makeProbabilityFraction(){
   const cases = [
-    {event:"rain", p:new Fraction(1,4), not:"not rain"},
-    {event:"win", p:new Fraction(2,5), not:"not win"},
-    {event:"be late", p:new Fraction(3,10), not:"not be late"},
-    {event:"choose blue", p:new Fraction(1,3), not:"not choose blue"},
-    {event:"pass the test", p:new Fraction(7,10), not:"not pass the test"},
-    {event:"land on red", p:new Fraction(3,8), not:"not land on red"}
+    {who:"it", who2:"it", event:"rain tomorrow", p:new Fraction(1,4), not:"not rain tomorrow"},
+    {who:"a team", who2:"the team", event:"win its next match", p:new Fraction(2,5), not:"not win its next match"},
+    {who:"a bus", who2:"the bus", event:"be late", p:new Fraction(3,10), not:"not be late"},
+    {who:"Sam", who2:"Sam", event:"choose blue", p:new Fraction(1,3), not:"not choose blue"},
+    {who:"a student", who2:"the student", event:"pass the test", p:new Fraction(7,10), not:"not pass the test"},
+    {who:"a spinner", who2:"the spinner", event:"land on red", p:new Fraction(3,8), not:"not land on red"}
   ];
   const item = choice(cases);
   const complement = new Fraction(item.p.d - item.p.n, item.p.d);
@@ -6542,7 +6540,7 @@ function makeProbabilityFraction(){
     topic: "Statistics & Probability",
     skill: "Probability using fractions",
     difficulty: "Foundation / Intermediate",
-    question: `The probability that an event will ${item.event} is ${item.p.toFractionString()}.\nFind the probability that it will ${item.not}.`,
+    question: `The probability that ${item.who} will ${item.event} is ${item.p.toFractionString()}.\nFind the probability that ${item.who2} will ${item.not}.`,
     options: mcq.options,
     correctIndex: mcq.correctIndex,
     solution: `Probabilities of all outcomes add to 1.\nProbability = 1 − ${item.p.toFractionString()} = ${complement.toFractionString()}`
@@ -7268,7 +7266,7 @@ function drawCircleTheoremTangentRadius(angle){
   // Right-angle square at P: radius is leftward (toward O), tangent is upward
   const sq = 10;
   // square: from P go left sq, then up sq
-  const sqPts = `${px-sq},${py} ${px-sq},${py-sq} ${px},${py-sq}`;
+  const sqPts = `${px-sq},${py} ${px-sq},${py+sq} ${px},${py+sq}`; // audit fix: T is now the lower end of the tangent so the marked angle really is TPQ
 
   // Arc for angle TPQ: between upward tangent ray and chord-extension ray, via engine
   const arcR = 26;
@@ -7279,7 +7277,7 @@ function drawCircleTheoremTangentRadius(angle){
   // TPQ label: place on bisector of (tangent-up) and (chord-extension), pushed right of tangent.
   // At small angles the bisector is nearly vertical (up-right), so push further out.
   const tpqDist = angle < 35 ? 56 : 44;
-  const tpqLabel = placeAngleLabel(px,py, 0,-1, cosCh,sinCh, tpqDist, `${angle}°`, '#c9963a', 13);
+  const tpqLabel = placeAngleLabel(px,py, 0,1, -cosCh,-sinCh, tpqDist, `${angle}°`, '#c9963a', 13);
 
   // ? label for angle OPQ: between P→Q and P→O.
   // P→O: leftward = screen angle 180°.
@@ -7340,13 +7338,13 @@ function drawCircleTheoremTangentRadius(angle){
   <line x1="${ox}" y1="${oy}" x2="${px}" y2="${py}" stroke="#c9963a" stroke-width="2.5"/>
   <line x1="${chordExtX.toFixed(1)}" y1="${chordExtY.toFixed(1)}" x2="${qExtX.toFixed(1)}" y2="${qExtY.toFixed(1)}" stroke="#15803d" stroke-width="2"/>
   <polyline points="${sqPts}" fill="none" stroke="#0d2b5e" stroke-width="1.5"/>
-  ${drawAngleArc(px,py, 0,-1, cosCh,sinCh, arcR, '#c9963a', 1.8)}
+  ${drawAngleArc(px,py, 0,1, -cosCh,-sinCh, arcR, '#c9963a', 1.8)}
   <circle cx="${px}" cy="${py}" r="4" fill="#1a4a9e"/>
   <circle cx="${qx.toFixed(1)}" cy="${qy.toFixed(1)}" r="4" fill="#15803d"/>
   <text x="${ox-22}" y="${oy+5}" font-size="13" fill="#0d2b5e" font-family="Georgia,serif" font-weight="bold">O</text>
   <text x="${px+8}" y="${py+5}" font-size="13" fill="#1a4a9e" font-family="Georgia,serif" font-weight="bold">P</text>
   <text x="${qLabelX.toFixed(1)}" y="${(qLabelY+4).toFixed(1)}" font-size="13" fill="#15803d" font-family="Georgia,serif" font-weight="bold" text-anchor="middle">Q</text>
-  <text x="${px+8}" y="${tTopY+16}" font-size="14" fill="#555" font-family="Georgia,serif" font-weight="bold">T</text>
+  <text x="${px+8}" y="${tBotY-4}" font-size="14" fill="#555" font-family="Georgia,serif" font-weight="bold">T</text>
   ${tpqLabel}
   <text x="${qLabX.toFixed(1)}" y="${(qLabY+5).toFixed(1)}" font-size="14" fill="#15803d" font-family="Georgia,serif" font-weight="bold" text-anchor="middle">?</text>
 </svg>`;
@@ -7764,6 +7762,7 @@ function _makeVectorsInner(){
       type:"mcq", id:makeID("GEO")
     };
   } else if(type==='magnitude'){
+    if(ax===0 && ay===0) return _makeVectorsInner(); // audit fix: zero vector
     const mag=dp(Math.sqrt(ax*ax+ay*ay),2);
     const ans=`${mag}`;
     const magRaw=Math.sqrt(ax*ax+ay*ay);
@@ -7779,7 +7778,7 @@ function _makeVectorsInner(){
       topic:"Geometry & Measure", skill:"Vectors – magnitude", grade:"7-8", difficulty:"Higher", paper:"paper1",
       question:`a = (${ax}, ${ay})\n\nFind |a|, the magnitude of vector a. Give your answer to 2 decimal places.`,
       options: shuffle([ans,...wrongs]), answer: ans,
-      solution:`|a| = √(${ax}² + ${ay}²) = √(${ax*ax} + ${ay*ay}) = √${ax*ax+ay*ay} = ${mag}`,
+      solution:`|a| = √(${ax<0?`(${ax})`:ax}² + ${ay<0?`(${ay})`:ay}²) = √(${ax*ax} + ${ay*ay}) = √${ax*ax+ay*ay} = ${mag}`,
       type:"mcq", id:makeID("GEO")
     };
   } else if(type==='scalar'){
@@ -7812,7 +7811,7 @@ function _makeVectorsInner(){
     const wrongs=[...new Set([`(${ax-k*bx}, ${ay-k*by})`,`(${k*ax+bx}, ${k*ay+by})`,`(${ax+bx}, ${ay+by})`,`(${ax+k*bx+1}, ${ay+k*by})`,`(${ax+k*bx}, ${ay+k*by+1})`,`(${ax+(k+1)*bx}, ${ay+(k+1)*by})`].filter(v=>v!==ans))].slice(0,3);
     return {
       topic:"Geometry & Measure", skill:"Vectors – path", grade:"8-9", difficulty:"Higher", paper:"paper1",
-      question:`OA = a = (${ax}, ${ay})  and  AB = b = (${bx}, ${by})\n\nC is on AB such that AC = ${k}AB.\nFind the position vector OC.`,
+      question:`OA = a = (${ax}, ${ay})  and  AB = b = (${bx}, ${by})\n\nC lies on the line AB extended beyond B, so that AC = ${k}AB.\nFind the position vector OC.`,
       options: shuffle([ans,...wrongs]), answer: ans,
       solution:`OC = OA + AC\n= OA + ${k}AB\n= (${ax}, ${ay}) + ${k}(${bx}, ${by})\n= (${ax}, ${ay}) + (${k*bx}, ${k*by})\n= (${ax+k*bx}, ${ay+k*by})`,
       type:"mcq", id:makeID("GEO")
@@ -7863,7 +7862,7 @@ function makeSurdsSimplify(){
   ].filter(v=>v!==ans)).slice(0,3);
   return {
     topic:"Number",skill:"Surds \u2013 simplify",grade:"6-7", difficulty:"Higher",paper:"paper1",
-    question:`Simplify \u221a${radicand}\n\nGive your answer in the form a\u221ab where b is prime.`,
+    question:`Simplify \u221a${radicand}\n\nGive your answer in the form a\u221ab, where a and b are integers and b is as small as possible.`,
     options:shuffle([ans,...distractors]),
     answer:ans,
     solution:`Find the largest perfect square factor of ${radicand}.\n\n${radicand} = ${coeff*coeff} \u00d7 ${rem}\n\n\u221a${radicand} = \u221a(${coeff*coeff} \u00d7 ${rem}) = \u221a${coeff*coeff} \u00d7 \u221a${rem} = ${coeff}\u221a${rem}`,
@@ -7881,6 +7880,7 @@ function makeSurdsRationalise(){
     if(c*c === n) return makeSurdsRationalise();
     const sNum = choice([1,-1]);
     const sDen = choice([1,-1]);
+    if(a === c && sNum === sDen) return makeSurdsRationalise(); // audit fix: numerator = denominator (value 1)
 
     let denom = c*c - n; // (c+sDen√n)(c-sDen√n) = c² - n, independent of sDen
     let P = a*c - sNum*sDen*n;
@@ -7912,9 +7912,9 @@ function makeSurdsRationalise(){
     // Pool of plausible-mistake distractors; keep the first 3 genuinely distinct
     // from the correct answer (and from each other).
     const candidatePool = [
-      `(${fmtSurdExpr(P,Q,n)})/${denom}`, // correct expansion but not reduced by the gcd
+      Dr===1 ? fmtSurdExpr(Pr,Q,n) : `(${fmtSurdExpr(Pr,Q,n)})/${Dr}`, // audit fix: only part-simplified (the unreduced form was equal in value to the answer)
       Dr===1 ? fmtSurdExpr(Pr,-Qr,n) : `(${fmtSurdExpr(Pr,-Qr,n)})/${Dr}`, // sign error on the conjugate
-      `(${questionNumStr})/(${questionDenomStr})`, // didn't multiply by the conjugate at all
+      Math.abs(c*c-n)===1 ? questionNumStr : `(${questionNumStr})/${Math.abs(c*c-n)}`, // audit fix: only multiplied the denominator (the unchanged original was equal in value to the answer)
       Dr===1 ? fmtSurdExpr(Qr,Pr,n) : `(${fmtSurdExpr(Qr,Pr,n)})/${Dr}`, // swapped rational/irrational parts
       `(${fmtSurdExpr(P,Q,n)})/${c*c+n}`, // added instead of subtracted n in the denominator
       Dr+1===1 ? fmtSurdExpr(Pr,Qr,n) : `(${fmtSurdExpr(Pr,Qr,n)})/${Dr+1}`, // off-by-one denominator
@@ -7945,9 +7945,9 @@ function makeSurdsRationalise(){
   const g=gcd(k,n);
   const numR=k/g, denR=n/g;
   const ans=denR===1?`${numR}√${n}`:(numR===1?`√${n}/${denR}`:`${numR}√${n}/${denR}`);
-  const distractors=shuffle([
-    `${k}/√${n}`,`${k}√${n}`,`√${n}/${k}`,`${k+1}√${n}/${n}`
-  ].filter(v=>v!==ans)).slice(0,3);
+  const distractors=[ // audit fix: k/√n (the original expression, equal in value) is no longer offered as a wrong option
+    `${k}/${n}`,`${k}√${n}`,`${k}√${n}/${n*n}`
+  ].concat(k>1?[`√${n}/${k}`]:[]).filter(v=>v!==ans).slice(0,3);
   return {
     topic:"Number",skill:"Surds – rationalise denominator",grade:"7-8", difficulty:"Higher",paper:"paper1",
     question:`Rationalise the denominator and simplify fully.\n\nWrite ${k}/√${n} without a surd in the denominator.`,
@@ -8026,13 +8026,15 @@ function makeRecurringDecimal2(){
 }
 
 function makeRecurringDecimalMixed(){
-  const nonRecur=randInt(1,5),recurDigit=randInt(1,9);
+  const nonRecur=randInt(1,5),recurDigit=randInt(1,8);
+  if(recurDigit===nonRecur) return makeRecurringDecimalMixed(); // audit fix: e.g. 3.4(4) is just 3.(4) and the wording contradicted itself
   const W=choice([0,1,1,2,2,3,4,5]);
   const num=90*W+nonRecur*9+recurDigit, den=90;
   const f=new Frac(num,den);
   const ans=f.toString();
   const distractors=[...new Set([`${num}/${den+10}`,`${W*90+nonRecur*10+recurDigit}/90`,`${num+1}/${den}`,`${num-1}/${den}`,`${num}/${den-10}`].filter(v=>v!==ans))].slice(0,3);
   if(distractors.length<3) return makeRecurringDecimalMixed();
+  { const _v=[ans,...distractors].map(t=>{const p=String(t).split('/');return Math.round(1e9*Number(p[0])/Number(p[1]||1));}); if(new Set(_v).size!==_v.length) return makeRecurringDecimalMixed(); } // audit fix: e.g. 18/90 and 1/5 offered together (equal values)
   return {
     topic:"Number",skill:"Recurring decimal \u2013 mixed non-recurring start",grade:"8-9", difficulty:"Higher",paper:"paper1",
     question:`Write ${W}.${nonRecur}${recurDot(String(recurDigit))} as a fraction in its simplest form.\n(${nonRecur} does not recur; only the ${recurDigit} recurs.)`,
@@ -8192,7 +8194,7 @@ function makeQuadraticFormula(){
     const aStr=a===1?"":String(a);
     const bStr=b>0?` + ${b}x`:` − ${Math.abs(b)}x`;
     const cStr=c>0?` + ${c}`:` − ${Math.abs(c)}`;
-    const opts1 = [...new Set([ans,`x = ${Number(xL)+1} or x = ${xS}`,`x = ${xL} or x = ${-Number(xS)}`,`x = ${-Number(xL)} or x = ${-Number(xS)}`])];
+    const opts1 = [...new Set([ans,`x = ${fmtRoot(Number(xL)+1)} or x = ${xS}`,`x = ${xL} or x = ${-Number(xS)}`,`x = ${-Number(xL)} or x = ${-Number(xS)}`])];
     if(opts1.length < 4) return { key:null, data:null };
     return {
       key:`${a}${b}${c}`,
@@ -8255,7 +8257,7 @@ function makeCompletingTheSquare(){
         }
       };
     } else {
-      if(q>0) return {key:`skip${b}${c}`,data:null};
+      if(q>=0) return {key:`skip${b}${c}`,data:null}; // audit fix: q = 0 gave a repeated root and an equivalent '± √0' option
       const tdp=(v,d)=>String(parseFloat(dp(v,d)));
       const x1=tdp(-bh+Math.sqrt(-q),2), x2=tdp(-bh-Math.sqrt(-q),2);
       const ans=`x = ${x1} or x = ${x2}`;
@@ -8294,7 +8296,7 @@ function makeFactoriseQuadratic(){
         `(x ${factorText(-r1+1)})(x ${factorText(-r2)})`,
         `(x ${factorText(-r1)})(x ${factorText(-r2-1)})`,
         `(x ${factorText(-(r1+r2))})(x ${factorText(c>0?1:-1)})`
-      ].filter(w=>!/(\+ 0|− 0|\+-)/.test(w));
+      ].filter(w=>!/(\+ 0|− 0|\+-)/.test(w)).filter((w,i,arr)=>{ const cn=x=>(x.replace(/\s/g,'').match(/\([^)]*\)/g)||[x]).sort().join(''); return cn(w)!==cn(ans) && arr.findIndex(y=>cn(y)===cn(w))===i; }); // audit fix: drop distractors that are the same factors in a different order
       return { key:`m${r1}${r2}`, data:{ topic:"Algebra", skill:"Factorise quadratic", grade:"5-6", difficulty:"Intermediate", paper:"paper1",
         question:`Factorise: x²${bx}${cx}`,
         options:_uniqOptions(ans,wrongs), answer:ans,
@@ -8335,7 +8337,7 @@ function makeFactoriseQuadratic(){
         `(${mTerm} ${factorText(-p)})(${nTerm} ${qStr})`
       ];
       const wrongs=[...wrongsBase,...wrongsExtra]
-        .filter(w=>!/(\+ 0|− 0|\+-)/.test(w));
+        .filter(w=>!/(\+ 0|− 0|\+-)/.test(w)).filter((w,i,arr)=>{ const cn=x=>(x.replace(/\s/g,'').match(/\([^)]*\)/g)||[x]).sort().join(''); return cn(w)!==cn(ans) && arr.findIndex(y=>cn(y)===cn(w))===i; }); // audit fix: drop distractors that are the same factors in a different order
       return { key:`n${a}_${m}_${n}_${p}_${q}`, data:{ topic:"Algebra", skill:"Factorise quadratic", grade:"6-7", difficulty:"Intermediate", paper:"paper1",
         question:`Factorise: ${aTerm}${bx}${cx}`,
         options:_uniqOptions(ans,wrongs), answer:ans,
@@ -8358,7 +8360,7 @@ function makeExpandTripleBrackets(){
     const rStr=r>=0?`+ ${r}`:` − ${Math.abs(r)}`;
     const ans=`x³ ${Bstr}x² ${Cstr}x ${Dstr}`;
     const step1b=p+q, step1c=p*q;
-    const opts1 = [...new Set([ans,`x³ ${Bstr}x² ${Cstr}x + ${Math.abs(D)+1}`,`x³ ${Cstr}x² ${Bstr}x ${Dstr}`,`x³ ${Bstr}x ${Cstr}x² ${Dstr}`].map(String))];
+    const opts1 = [...new Set([ans,`x³ ${Bstr}x² ${Cstr}x + ${Math.abs(D)+1}`,`x³ ${Cstr}x² ${Bstr}x ${Dstr}`,`x³ ${B>=0?` − ${B}`:`+ ${Math.abs(B)}`}x² ${Cstr}x ${Dstr}`].map(String))]; // audit fix: old 4th option was the 3rd option reordered
     if(opts1.length < 4) return { key:null, data:null };
     return {
       key:`${p}${q}${r}`,
@@ -8625,14 +8627,14 @@ function makeShowThatQuestion(){
 }
 
 function makeIteration(){
-  const tdp=(x,d)=>String(parseFloat(dp(x,d)));
+  const tdp=(x,d)=>dp(x,d); // audit fix: keep 3 d.p. (e.g. 3.550) and avoid '4' vs '4.000' duplicates
   return notSame("iteration", ()=>{
     const type = choice(['linear','cubic','square_root']);
     if(type==='linear'){
       // x_{n+1} = (c - ax^2)/b type — simple linear rearrangement
       const a=randInt(2,5), b=randInt(2,4), c=randInt(10,30);
       const x0=randInt(1,4);
-      const x1=tdp((c-a*x0)/b,3), x2=tdp((c-a*Number(x1))/b,3);
+      const x1=tdp((c-a*x0)/b,3), x2=tdp((c-a*((c-a*x0)/b))/b,3); /* audit fix: iterate with full precision */
       const ans=`${x2}`;
       const opts1 = [...new Set([ans,`${dp(Number(x2)+0.1,3)}`,`${dp(Number(x1),3)}`,`${dp(Number(x2)-0.1,3)}`].map(String))];
       if(opts1.length < 4) return { key:null, data:null };
@@ -8646,7 +8648,7 @@ function makeIteration(){
       const k=randInt(2,6);
       const x0=dp(randInt(10,20)/10,1);
       const x1=tdp(Math.cbrt(k+Number(x0)),3);
-      const x2=tdp(Math.cbrt(k+Number(x1)),3);
+      const x2=tdp(Math.cbrt(k+Math.cbrt(k+Number(x0))),3);
       const ans=`${x2}`;
       const opts2 = [...new Set([ans,`${dp(Number(x2)+0.1,3)}`,`${dp(Number(x1),3)}`,`${dp(Number(x2)+0.01,3)}`].map(String))];
       if(opts2.length < 4) return { key:null, data:null };
@@ -8659,7 +8661,7 @@ function makeIteration(){
     } else {
       const k=randInt(3,12);
       const x0=randInt(1,4);
-      const x1=tdp(Math.sqrt(k+x0),3), x2=tdp(Math.sqrt(k+Number(x1)),3);
+      const x1=tdp(Math.sqrt(k+x0),3), x2=tdp(Math.sqrt(k+Math.sqrt(k+x0)),3);
       const ans=`${x2}`;
       const opts3 = [...new Set([ans,`${dp(Number(x2)+0.1,3)}`,`${dp(Number(x1),3)}`,`${dp(Number(x2)-0.1,3)}`].map(String))];
       if(opts3.length < 4) return { key:null, data:null };
@@ -8920,9 +8922,9 @@ function makeCircleTheoremSameSegment(){
   if(wrongs.length < 3) return makeCircleTheoremSameSegment();
   return {
     topic:"Geometry & Measure", skill:"Circle theorem – angles in same segment", grade:"7-8", difficulty:"Intermediate", paper:"paper1",
-    question:`A, B, C and D are points on the circumference of a circle.\nAC and BD are chords that intersect inside the circle.\n\nAngle CAD = ${angle}°.\n\nFind angle CBD. Give a reason for your answer.`,
+    question:`A, B, C and D are points on the circumference of a circle.\nChords AD and BC intersect inside the circle.\n\nAngle ACB = ${angle}°.\n\nFind angle ADB. Give a reason for your answer.`,
     options: shuffle([ans,...wrongs]), answer: ans,
-    solution:`Angle CBD = ${angle}°\n\nReason: Angles subtended by the same arc in the same segment are equal.\n(Angles CAD and CBD are both subtended by arc CD on the same side.)`,
+    solution:`Angle ADB = ${angle}°\n\nReason: Angles in the same segment are equal.\n(Angles ACB and ADB are both subtended by chord AB, and C and D are in the same segment.)`,
     type:"mcq", id:makeID("GEO"),
     diagram: drawCircleTheoremSameSegment(angle)
   };
@@ -9036,12 +9038,12 @@ function makeCumulativeFrequencyMedian(){
     topic:"Statistics & Probability", skill:"Cumulative frequency – median", grade:"6-7", difficulty:"Higher",
     paper:"paper2",
     question:`A cumulative frequency graph is drawn for ${n} data values.\n\nDescribe how you would find the median from the graph.`,
-    options:[
+    options:shuffle([
       `Read across from ${n/2} on the CF axis, then down to the data axis`,
       `Read across from ${n} on the CF axis, then down to the data axis`,
       `Read across from ${n/4} on the CF axis, then down to the data axis`,
       `Add all values and divide by ${n}`
-    ],
+    ]), // audit fix: the correct option was always A
     answer:`Read across from ${n/2} on the CF axis, then down to the data axis`,
     solution:`For n = ${n} values:\nMedian is at the ${n/2}th value.\nRead across from ${n/2} on the cumulative frequency axis horizontally to the curve,\nthen vertically down to read the median value.`,
     type:"mcq", id:makeID("STA")
@@ -9074,7 +9076,7 @@ function makeVennDiagramProbability(){
   const type=choice(["AandB","AorB","AgivenB"]);
   if(type==="AandB"){
     const ans=pAandB.toString();
-    const wrongs=[...new Set([`${both+1}/${total}`,`${onlyA+both}/${total}`,`${both}/${total+1}`].filter(v=>v!==ans))];
+    const wrongs=[...new Set([`${both+1}/${total}`,`${onlyA+both}/${total}`,`${both}/${total+1}`].filter((v,i,arr)=>{const f=t=>{const p=String(t).split('/').map(Number);return p.length===2?p[0]/p[1]:p[0];};return v!==ans&&Math.abs(f(v)-f(ans))>1e-12&&arr.findIndex(w=>Math.abs(f(w)-f(v))<1e-12)===i;}))]; // audit fix: no distractor equal in value to the answer
     if(wrongs.length < 3) return makeVennDiagramProbability();
     const opts=shuffle([ans,...wrongs]);
     return {
@@ -9087,7 +9089,7 @@ function makeVennDiagramProbability(){
     };
   } else if(type==="AorB"){
     const ans=pAorB.toString();
-    const wrongs=[...new Set([`${onlyA+both+onlyB+1}/${total}`,`${both}/${total}`,`${onlyA+onlyB}/${total}`].filter(v=>v!==ans))];
+    const wrongs=[...new Set([`${onlyA+both+onlyB+1}/${total}`,`${both}/${total}`,`${onlyA+onlyB}/${total}`].filter((v,i,arr)=>{const f=t=>{const p=String(t).split('/').map(Number);return p.length===2?p[0]/p[1]:p[0];};return v!==ans&&Math.abs(f(v)-f(ans))>1e-12&&arr.findIndex(w=>Math.abs(f(w)-f(v))<1e-12)===i;}))]; // audit fix: no distractor equal in value to the answer
     if(wrongs.length < 3) return makeVennDiagramProbability();
     const opts=shuffle([ans,...wrongs]);
     return {
@@ -9102,7 +9104,7 @@ function makeVennDiagramProbability(){
     // P(A|B) = P(A∩B)/P(B)
     const pAgivenB=new Frac(both,both+onlyB);
     const ans=pAgivenB.toString();
-    const wrongs=[...new Set([`${both}/${total}`,`${both+1}/${both+onlyB}`,`${onlyA+both}/${total}`].filter(v=>v!==ans))];
+    const wrongs=[...new Set([`${both}/${total}`,`${both+1}/${both+onlyB}`,`${onlyA+both}/${total}`].filter((v,i,arr)=>{const f=t=>{const p=String(t).split('/').map(Number);return p.length===2?p[0]/p[1]:p[0];};return v!==ans&&Math.abs(f(v)-f(ans))>1e-12&&arr.findIndex(w=>Math.abs(f(w)-f(v))<1e-12)===i;}))]; // audit fix: no distractor equal in value to the answer
     if(wrongs.length < 3) return makeVennDiagramProbability();
     const opts=shuffle([ans,...wrongs]);
     return {
@@ -9294,7 +9296,7 @@ function makeTransformations(){
     const sf=choice([2,3,4]);
     const cx=randInt(-2,3), cy=randInt(-2,3);
     const ans=`(${cx+sf*(px-cx)}, ${cy+sf*(py-cy)})`;
-    const wrongs=[...new Set([`(${sf*px}, ${sf*py})`,`(${cx+sf*(px-cx)+1}, ${cy+sf*(py-cy)})`,`(${cx+(px-cx)/sf}, ${cy+(py-cy)/sf})`].filter(v=>v!==ans))];
+    const wrongs=[...new Set([`(${sf*px}, ${sf*py})`,`(${cx+sf*(px-cx)+1}, ${cy+sf*(py-cy)})`,`(${Math.round((cx+(px-cx)/sf)*100)/100}, ${Math.round((cy+(py-cy)/sf)*100)/100})`].filter(v=>v!==ans))];
     if(wrongs.length < 3) return makeTransformations();
     return {
       topic:"Geometry & Measure", skill:"Transformations – enlargement", grade:"6-7", difficulty:"Intermediate", paper:"paper1",
@@ -9327,8 +9329,8 @@ function makeBearings(){
     const dist1=randInt(5,12), dist2=randInt(5,12);
     const b1=choice([0,90,180,270]);
     const b2=choice([45,135,225,315]);
-    const x1=dist1*Math.sin(b1*Math.PI/180), y1=-dist1*Math.cos(b1*Math.PI/180);
-    const x2=x1+dist2*Math.sin(b2*Math.PI/180), y2=y1-dist2*Math.cos(b2*Math.PI/180);
+    const x1=dist1*Math.sin(b1*Math.PI/180), y1=dist1*Math.cos(b1*Math.PI/180); /* audit fix: north is +y, so atan2(east, north) gives the true bearing */
+    const x2=x1+dist2*Math.sin(b2*Math.PI/180), y2=y1+dist2*Math.cos(b2*Math.PI/180);
     const finalBearing=dp((Math.atan2(x2,y2)*180/Math.PI+360)%360,0);
     const finalDist=dp(Math.sqrt(x2*x2+y2*y2),1);
     const ans=String(Math.round(Number(finalBearing))).padStart(3,"0")+"°";
@@ -9337,9 +9339,8 @@ function makeBearings(){
       topic:"Geometry & Measure", skill:"Bearings – calculate", grade:"6-7", difficulty:"Intermediate", paper:"paper2",
       question:`A ship travels ${dist1} km on a bearing of ${String(b1).padStart(3,"0")}°, then ${dist2} km on a bearing of ${String(b2).padStart(3,"0")}°.\n\nFind the bearing of the ship's final position from its start.`,
       options: shuffle([ans,...wrongs]), answer: ans,
-      solution:`Resolve into components, find resultant bearing.\nFinal bearing = ${ans}`,
-      type:"mcq", id:makeID("GEO"),
-      diagram: drawBearing(bearing, from, to)
+      solution:`Take east and north components of each leg (sin for east, cos for north).\nEast: ${Math.round(x1*100)/100} + ${Math.round((x2-x1)*100)/100} = ${Math.round(x2*100)/100} km\nNorth: ${Math.round(y1*100)/100} + ${Math.round((y2-y1)*100)/100} = ${Math.round(y2*100)/100} km\nBearing = angle clockwise from north to this position = ${ans}`,
+      type:"mcq", id:makeID("GEO")
     };
   }
 }
@@ -9353,7 +9354,7 @@ function makeSimilarity(){
     const knownL2 = randInt(6,18);
     const unknownL1 = dp(knownL2/sf,2);
     const ans=`${unknownL1} cm`;
-    const wrong1=`${dp(knownL2*sf,2)} cm`, wrong2=`${dp(unknownL1+1,2)} cm`, wrong3=`${dp(knownL2-sf,2)} cm`;
+    const wrong1=`${dp(knownL2*sf,2)} cm`, wrong2=`${dp(Number(unknownL1)+1,2)} cm`, wrong3=`${dp(knownL2-sf,2)} cm`;
     const opts1 = [...new Set([ans,wrong1,wrong2,wrong3])];
     if(opts1.length < 4) return makeSimilarity();
     return { topic:"Geometry & Measure", skill:"Similarity – corresponding lengths", grade:"6-7", difficulty:"Intermediate", paper:"paper2",
@@ -9364,7 +9365,7 @@ function makeSimilarity(){
   } else if(type==='find_area'){
     const a1=randInt(10,40), a2=dp(a1*sf*sf,1);
     const ans=`${a2} cm²`;
-    const wrong1=`${dp(a1*sf,1)} cm²`, wrong2=`${dp(a2+sf,1)} cm²`, wrong3=`${dp(a1*sf*sf*sf,1)} cm²`;
+    const wrong1=`${dp(a1*sf,1)} cm²`, wrong2=`${dp(Number(a2)+sf,1)} cm²`, wrong3=`${dp(a1*sf*sf*sf,1)} cm²`;
     const opts2 = [...new Set([ans,wrong1,wrong2,wrong3])];
     if(opts2.length < 4) return makeSimilarity();
     return { topic:"Geometry & Measure", skill:"Similarity – area scale factor", grade:"7-8", difficulty:"Intermediate", paper:"paper2",
@@ -9375,7 +9376,7 @@ function makeSimilarity(){
   } else {
     const v1=randInt(10,50), v2=dp(v1*sf*sf*sf,1);
     const ans=`${v2} cm³`;
-    const wrong1=`${dp(v1*sf,1)} cm³`, wrong2=`${dp(v1*sf*sf,1)} cm³`, wrong3=`${dp(v2+sf,1)} cm³`;
+    const wrong1=`${dp(v1*sf,1)} cm³`, wrong2=`${dp(v1*sf*sf,1)} cm³`, wrong3=`${dp(Number(v2)+sf,1)} cm³`;
     const opts3 = [...new Set([ans,wrong1,wrong2,wrong3])];
     if(opts3.length < 4) return makeSimilarity();
     return { topic:"Geometry & Measure", skill:"Similarity – volume scale factor", grade:"8-9", difficulty:"Intermediate", paper:"paper2",
@@ -9450,28 +9451,28 @@ function makeFunctionMachineIntermediate(){
     const type = choice(['forward','inverse']);
     if(type==='forward'){
       const C = choice([0,5,10,15,20,25,30,35,40,100]);
-      const F = C * 1.8 + 32;
-      const wrong1 = C * 1.8;
+      const F = Math.round(C * 18 + 320) / 10;
+      const wrong1 = Math.round(C * 18) / 10; // audit fix: float noise such as 75.60000000000001
       const wrong2 = C + 32;
-      const wrong3 = (C + 32) * 1.8;
+      const wrong3 = Math.round((C + 32) * 18) / 10;
       const mcq = buildMCQOptions(`${F}\u00b0F`,[`${wrong1}\u00b0F`,`${wrong2}\u00b0F`,`${wrong3}\u00b0F`]);
       if(!mcq) return makeFunctionMachineIntermediate();
       return { id:makeID("ALG"), topic:"Algebra", skill:"Function machines", difficulty:"Foundation / Intermediate", paper:"paper1",
         question:`A rule to convert Celsius (\u00b0C) to Fahrenheit (\u00b0F) is:\n\nMultiply by 1.8, then add 32\n\nThe temperature is ${C}\u00b0C. What is this in Fahrenheit?`,
         options:mcq.options, correctIndex:mcq.correctIndex,
-        solution:`${C} \u00d7 1.8 = ${C*1.8}\n${C*1.8} + 32 = ${F}\n\nAnswer: ${F}\u00b0F` };
+        solution:`${C} \u00d7 1.8 = ${Math.round(C*18)/10}\n${Math.round(C*18)/10} + 32 = ${F}\n\nAnswer: ${F}\u00b0F` };
     } else {
       const C = choice([0,5,10,15,20,25,30]);
-      const F = C * 1.8 + 32;
-      const wrong1 = (F - 32) * 1.8;
-      const wrong2 = F / 1.8 - 32;
+      const F = Math.round(C * 18 + 320) / 10;
+      const wrong1 = Math.round((F - 32) * 18) / 10;
+      const wrong2 = Math.round((F / 1.8 - 32) * 10) / 10;
       const wrong3 = C + 2;
       const mcq = buildMCQOptions(`${C}\u00b0C`,[`${wrong1}\u00b0C`,`${wrong2}\u00b0C`,`${wrong3}\u00b0C`]);
       if(!mcq) return makeFunctionMachineIntermediate();
       return { id:makeID("ALG"), topic:"Algebra", skill:"Function machines", difficulty:"Foundation / Intermediate", paper:"paper1",
         question:`A rule to convert Celsius (\u00b0C) to Fahrenheit (\u00b0F) is:\n\nMultiply by 1.8, then add 32\n\nThe temperature is ${F}\u00b0F. What is this in Celsius?`,
         options:mcq.options, correctIndex:mcq.correctIndex,
-        solution:`Work backwards:\n${F} \u2212 32 = ${F-32}\n${F-32} \u00f7 1.8 = ${C}\n\nAnswer: ${C}\u00b0C` };
+        solution:`Work backwards:\n${F} \u2212 32 = ${Math.round((F-32)*10)/10}\n${Math.round((F-32)*10)/10} \u00f7 1.8 = ${C}\n\nAnswer: ${C}\u00b0C` };
     }
   }
 
@@ -9669,7 +9670,7 @@ function makeRearrangingFormulaExtended(){
     const w=[`x = (y − ${b}) / ${d}`,`x = ${d}y − ${b}`,`x = (y + ${b}) × ${d}`];
     const mcq=buildMCQOptions(correct2,w); if(!mcq) return makeRearrangingFormulaExtended();
     return {id:makeID("ALG"),topic:"Algebra",skill:"Rearranging formulae",difficulty:"Intermediate",
-      question:`Make x the subject of   y = ${fracDisplay}x + ${b}`,
+      question:`Make x the subject of   y = (${fracDisplay})x + ${b}`,
       options:mcq.options,correctIndex:mcq.correctIndex,
       solution:`Subtract ${b}: y − ${b} = (${fracDisplay})x\nMultiply by ${d}: ${d}(y − ${b}) = ${n===1?"x":`${n}x`}\n${n===1?"":("Divide by "+n+": ")}${correct2}`};
   }
@@ -9699,7 +9700,7 @@ function makeRearrangingFormulaExtended(){
     const a=randInt(2,6), vars=[['P','a','b'],['C','x','y'],['A','m','n']];
     const [L,p,q]=choice(vars);
     const correct=`${p} = (${L} − ${a}${q}) / ${a}`;
-    const w=[`${p} = ${L}/${a} − ${q}`,`${p} = (${L} + ${a}${q}) / ${a}`,`${p} = ${L} − ${q}`];
+    const w=[`${p} = ${L}/${a} − ${a}${q}`,`${p} = (${L} + ${a}${q}) / ${a}`,`${p} = ${L} − ${q}`]; // audit fix: L/a − q was equivalent to the answer
     const mcq=buildMCQOptions(correct,w); if(!mcq) return makeRearrangingFormulaExtended();
     return {id:makeID("ALG"),topic:"Algebra",skill:"Rearranging formulae",difficulty:"Foundation / Intermediate",
       question:`Make ${p} the subject of   ${L} = ${a}${p} + ${a}${q}`,
@@ -10067,6 +10068,7 @@ function makeExtendedReversePercentage(){
   const combinedPct = (kind1 === "increase" ? step1.n/step1.d : -step1.n/step1.d) +
                        (kind2 === "increase" ? step2.n/step2.d : -step2.n/step2.d);
   const wrongCombined = Math.round(finalPounds / (1 + combinedPct));
+  if (!Number.isFinite(wrongCombined) || wrongCombined <= 0) return makeExtendedReversePercentage(); // audit fix: avoided '£Infinity.00'
 
   const wrongs = [`£${afterStep2OnlyReversed}.00`, `£${wrongForward}.00`, `£${wrongCombined}.00`];
   const mcq = buildMCQOptions(correctText, wrongs);
@@ -10294,7 +10296,7 @@ function makeIndicesFractionBase(){
   while(attempts < 60){
     attempts++;
     a = choice(squares);
-    b = choice(squares.filter(v => v !== a && v !== 0));
+    b = choice(squares.filter(v => v !== a && v !== 1)); // audit fix: avoid a base like (4/1)
     nObj = choice(nPool);
     key = `${a}/${b}^${nObj.type}${nObj.n||nObj.m+'/'+nObj.d}`;
     if(prev && key === prev) continue;
@@ -10851,9 +10853,9 @@ function makeLawsOfIndicesAlgebraic(){
     const c1 = c2*choice([2,3,4]);
     const cQuot = c1/c2;
     const correct = diff===0 ? String(cQuot) : (diff===1 ? `${cQuot}${v}` : `${cQuot}${v}${sup(diff)}`);
-    const w1 = `${c1-c2}${v}${sup(diff)}`;
+    const w1 = `${c1-c2}${v}${diff===1?'':sup(diff)}`;
     const w2 = `${cQuot}${v}${sup(p+q)}`;
-    const w3 = `${cQuot+1}${v}${sup(diff)}`;
+    const w3 = `${cQuot+1}${v}${diff===1?'':sup(diff)}`;
     const opts = buildAlgOptions(correct, [w1,w2,w3]);
     if(!opts) return makeLawsOfIndicesAlgebraic();
     return { topic:"Algebra", skill:"Laws of indices \u2013 divide with coefficients", grade:"5-6", difficulty:"Intermediate", paper:"paper1",
@@ -10941,7 +10943,7 @@ function makeLawsOfIndicesAlgebraic(){
       grade:"7-8", difficulty:"Intermediate / Higher", paper:"paper1",
       question:`Simplify: ${v}${fracExp(m,den)} \u00d7 ${v}${fracExp(p,den)}`,
       options:opts, answer:correct,
-      solution:`Add the powers: ${fracExp(m,den)} + ${fracExp(p,den)} = ${fracExp(sumN,den)}${g>1?' = '+fracExp(rn,rd):''}<br>Answer: ${correct}`,
+      solution:`Add the powers: ${fracExp(m,den)} + ${fracExp(p,den)} = ${fracExp(sumN,den)}${g>1?' = '+(rd===1?String(rn):fracExp(rn,rd)):''}<br>Answer: ${correct}`,
       type:"mcq", id:makeID("ALG")
     };
   }
@@ -11206,16 +11208,17 @@ function makeTilingCost(){
   const tilesNeededExact = roomArea/tileArea;
   const tilesNeeded = Math.ceil(tilesNeededExact - 1e-9);
   const pricePerTile = choice([2,2.5,3,3.5,4,5,6]);
+  const gbp = v => Number.isInteger(v) ? `£${v}` : `£${v.toFixed(2)}`; // audit fix: £3.50 not £3.5
   const totalCost = Math.round(tilesNeeded*pricePerTile*100)/100;
   if(tilesNeeded<8 || tilesNeeded>150) return makeTilingCost();
 
   const wrong1 = Math.round(tilesNeededExact*pricePerTile*100)/100; // uses exact (unrounded) tile count
   const wrong2 = Math.round((tilesNeeded-1)*pricePerTile*100)/100; // one tile short (floor instead of ceil)
   const wrong3 = Math.round(roomArea*pricePerTile*100)/100; // confuses area with tile count
-  const distractors = [...new Set([wrong1,wrong2,wrong3].map(v=>`£${v}`).filter(v=>v!==`£${totalCost}`))];
+  const distractors = [...new Set([wrong1,wrong2,wrong3].map(gbp).filter(v=>v!==gbp(totalCost)))];
   if(distractors.length<3) return makeTilingCost();
 
-  const mcq = buildMCQOptions(`£${totalCost}`, distractors.slice(0,3));
+  const mcq = buildMCQOptions(gbp(totalCost), distractors.slice(0,3));
   if(!mcq) return makeTilingCost();
 
   return {
@@ -11225,7 +11228,7 @@ function makeTilingCost(){
     difficulty: "Intermediate / Higher",
     question:
       `A rectangular floor measures ${roomL} m by ${roomW} m.\n` +
-      `It is to be tiled using square tiles with side length ${tileSideCm} cm, costing £${pricePerTile} each.\n` +
+      `It is to be tiled using square tiles with side length ${tileSideCm} cm, costing ${gbp(pricePerTile)} each.\n` +
       `Tiles cannot be bought in part — whole tiles must be bought, and any spare tiles are wasted.\n` +
       `What is the total cost of the tiles needed?`,
     options: mcq.options,
@@ -11234,7 +11237,7 @@ function makeTilingCost(){
       `Area of floor = ${roomL} × ${roomW} = ${roomArea} m²\n` +
       `Area of one tile = ${tileSideM} × ${tileSideM} = ${tileArea} m²\n` +
       `Number of tiles = ${roomArea} ÷ ${tileArea} = ${Number(tilesNeededExact.toFixed(2))}, round up to ${tilesNeeded} whole tiles\n` +
-      `Cost = ${tilesNeeded} × £${pricePerTile} = £${totalCost}`
+      `Cost = ${tilesNeeded} × ${gbp(pricePerTile)} = ${gbp(totalCost)}`
   };
 }
 
@@ -11505,11 +11508,12 @@ function makeUnitConversionQuestion(){
     fromUnit = def.b; toUnit = def.a;
     fromAmt = amount; toAmtRaw = amount / def.factor;
   }
-  const roundFactor = Math.pow(10, def.dp);
+  const dpUse = Math.abs(toAmtRaw * Math.pow(10, def.dp) - Math.round(toAmtRaw * Math.pow(10, def.dp))) < 1e-9 ? def.dp : Math.max(def.dp, 2); // audit fix: non-terminating results shown to 2 d.p. (5.83, not the padded 5.80)
+  const roundFactor = Math.pow(10, dpUse);
   const toAmt = Math.round(toAmtRaw * roundFactor) / roundFactor;
   if(toAmt <= 0) return makeUnitConversionQuestion();
 
-  const fmt = (v) => def.dp===0 ? String(Math.round(v)) : Number(v.toFixed(def.dp)).toString();
+  const fmt = (v) => dpUse===0 ? String(Math.round(v)) : Number(v.toFixed(dpUse)).toString();
   const correctText = fmt(toAmt);
 
   // distractors: inverted operation, off-by-rounding, arithmetic slip
@@ -11537,8 +11541,8 @@ function makeUnitConversionQuestion(){
 
   const fmtQty = (unit, val) => def.cat==="money" ? `${unit}${val}` : `${val} ${unit}`;
   const solutionText = direction==="forward"
-    ? `${fmtQty(fromUnit,fromAmt)} × ${def.factor} = ${fmtQty(toUnit,correctText)}`
-    : `${fmtQty(fromUnit,fromAmt)} ÷ ${def.factor} = ${fmtQty(toUnit,correctText)}`;
+    ? `${fmtQty(fromUnit,fromAmt)} × ${def.factor} ${toAmt === toAmtRaw ? '=' : '≈'} ${fmtQty(toUnit,correctText)}`
+    : `${fmtQty(fromUnit,fromAmt)} ÷ ${def.factor} ${toAmt === toAmtRaw ? '=' : '≈'} ${fmtQty(toUnit,correctText)}`;
 
   return {
     id: makeID("CONV"),
@@ -11821,7 +11825,7 @@ function makeAlgebraicEquilateralProof(){
     difficulty: "Intermediate / Higher",
     question: `A triangle has sides (${side1}) cm, (${side2}) cm and (${side3}) cm. Show that the triangle is equilateral.`,
     options: null, answer: null, type: "open",
-    solution: `Set two expressions equal to find w:\n${side1} = ${side2}\n${p1}w ${q1>=0?"+":"-"} ${Math.abs(q1)} = ${p2}w ${q2>=0?"+":"-"} ${Math.abs(q2)}\n(${p1-p2})w = ${q2-q1}\nw = ${w0}\n\nSubstitute w = ${w0} into all three expressions:\n${side1} = ${S}\n${side2} = ${S}\n${side3} = ${S}\n\nAll three sides equal ${S} cm, so the triangle is equilateral.`
+    solution: `Set two expressions equal to find w:\n${side1} = ${side2}\n${p1-p2===1?'':p1-p2===-1?'−':p1-p2}w = ${q2-q1}\nw = ${w0}\n\nSubstitute w = ${w0} into all three expressions:\n${side1} = ${S}\n${side2} = ${S}\n${side3} = ${S}\n\nAll three sides equal ${S} cm, so the triangle is equilateral.`
   };
 }
 
@@ -12091,11 +12095,11 @@ function makeSimilarCrossingLinesPQRS(){
   const mcq = buildMCQOptions(correctText, [wrong1,wrong2,wrong3]);
   if(!mcq) return makeSimilarCrossingLinesPQRS();
 
-  // T is the crossing point of PR and QS; PQ ∥ RS
-  const T={x:180,y:170};
+  // T is the crossing point of PS and QR; PQ ∥ RS (audit fix: lines and T now match the stated ratios)
+  const T={x:180,y:199};
   const P={x:60,y:60}, Q={x:300,y:60};
   const R={x:110,y:280}, S={x:250,y:280};
-  let body = gLine(P,R)+gLine(Q,S)+gLine(P,Q)+gLine(R,S);
+  let body = gLine(P,S)+gLine(Q,R)+gLine(P,Q)+gLine(R,S);
   // PQ and RS are the stated parallel pair -- mark both to match the text.
   const dirPQ = {x:Q.x-P.x, y:Q.y-P.y};
   const lenPQ = Math.hypot(dirPQ.x,dirPQ.y);
@@ -12111,7 +12115,7 @@ function makeSimilarCrossingLinesPQRS(){
   return {
     topic:"Geometry & Measure", skill:"Similarity — crossing lines (PQ ∥ RS)", grade:"8-9", difficulty:"Higher", paper:"paper2",
     diagram: gSvg(360,320, body),
-    question:`Lines PR and QS cross at T. PQ is parallel to RS.<br>${givenLines}.<br><br>Find ${askFor}.`,
+    question:`Lines PS and QR cross at T. PQ is parallel to RS.<br>${givenLines}.<br><br>Find ${askFor}.`,
     options: mcq.options, correctIndex: mcq.correctIndex,
     solution:`Since PQ ∥ RS, triangle PQT is similar to triangle SRT (vertically opposite angles at T, alternate angles at P/S and Q/R).<br>Scale factor = ${p}/${q} (large : small)<br>${askFor} = ${askFor==='PQ'?`RS × ${p}/${q} = ${RS} × ${p}/${q} = ${PQ} cm`:`QT × ${q}/${p} = ${QT} × ${q}/${p} = ${RT} cm`}`,
     type:"mcq", id: makeID("GEO")
@@ -12570,6 +12574,66 @@ const FACTORY_REGISTRY = [
 
 ];
 
+/* == Audit fix (Oct 2026): tidy maths text, avoid duplicate/equivalent options, unique ID codes == */
+function auditTidyText(str){
+  if (typeof str !== "string") return str;
+  return str.split(/(<[^>]*>)/).map(function(part, i){
+    if (i % 2 === 1) return part;
+    return part
+      .replace(/(^|[\s(=+\-−×÷,:\/])1(?=[a-gi-zA-Z](?:[²³⁴⁵⁶⁷⁸⁹]|\^\d)?(?:[\s+\-−=)<>,\/×÷²³]|$))/g, "$1")
+      .replace(/(^|[\s(=+\-−,])1√/g, "$1√")
+      .replace(/\+ [-−](?=[\d(a-zA-Z√])/g, "− ")
+      .replace(/\+ − /g, "− ")
+      .replace(/([\s(])[-−] [-−](?=[\d(a-zA-Z√])/g, "$1+ ")
+      .replace(/ [+\-−] 0[a-zA-Z](?:[²³⁴⁵⁶⁷⁸⁹]|\^\d)?(?=[\s)=,]|$)/g, "")
+      .replace(/ [+\-−] 0(?![\d.,°%])(?=[ \t]*(?:$|\n|[)=,<>]))/g, "")
+      .replace(/= 0[a-zA-Z] ([+\-−]) (?=\d)/g, function(m, sg){ return sg === "+" ? "= " : "= " + (sg === "−" ? "−" : "-"); })
+      .replace(/= 0[a-zA-Z](?![\w²³⁴⁵⁶⁷⁸⁹(])/g, "= 0")
+      .replace(/£(\d+)\.(\d)(?!\d|\.\d)/g, "£$1.$20")
+      .replace(/(\S) {2,}(?=\S)/g, "$1 ");
+  }).join("");
+}
+function auditOptionKey(o){
+  return String(o).replace(/<[^>]*>/g, "").replace(/\s+/g, "").replace(/−/g, "-")
+    .replace(/-?\d+\.\d+/g, function(n){ return String(Number(n)); });
+}
+function auditWrapFactory(fn, code){
+  var wrapped = function(){
+    var q = null;
+    for (var attempt = 0; attempt < 25; attempt++){
+      q = fn.apply(this, arguments);
+      if (!q || typeof q !== "object") return q;
+      q.question = auditTidyText(q.question);
+      q.solution = auditTidyText(q.solution);
+      if (typeof q.answer === "string") q.answer = auditTidyText(q.answer);
+      if (Array.isArray(q.options)) q.options = q.options.map(auditTidyText);
+      if (code && typeof q.id === "string" && q.id.indexOf("-") > 0) q.id = code + q.id.slice(q.id.indexOf("-"));
+      if (!Array.isArray(q.options)) return q;
+      var keys = q.options.map(auditOptionKey);
+      if (new Set(keys).size === keys.length) return q;
+    }
+    return q;
+  };
+  try { Object.defineProperty(wrapped, "name", { value: fn.name }); } catch (e) {}
+  return wrapped;
+}
+(function(){
+  var counts = {}, used = {};
+  FACTORY_REGISTRY.forEach(function(e){ counts[e.prefix] = (counts[e.prefix] || 0) + 1; });
+  FACTORY_REGISTRY.forEach(function(e){
+    var code = e.prefix;
+    if (counts[e.prefix] > 1){
+      var h = 0, nm = e.fn.name || e.name;
+      for (var k = 0; k < nm.length; k++) h = (h * 31 + nm.charCodeAt(k)) >>> 0;
+      code = e.prefix + (h % 46656).toString(36).toUpperCase().padStart(3, "0");
+    }
+    while (used[code.toUpperCase()]) code += "X";
+    used[code.toUpperCase()] = true;
+    e.prefix = code;
+    e.fn = auditWrapFactory(e.fn, code);
+  });
+})();
+
 /* == STATE == */
 let activeIndex=-1, currentQ=null, solutionVisible=false;
 let testedSet=new Set(), errorSet=new Set();
@@ -12737,7 +12801,8 @@ function lookupByPrefix(){
   const raw=document.getElementById('idLookupInput').value.trim().toUpperCase();
   if(!raw) return;
   const prefix=raw.split('-')[0];
-  const match=FACTORY_REGISTRY.findIndex(f=>f.prefix.toUpperCase()===prefix||f.name.toUpperCase().includes(prefix));
+  let match=FACTORY_REGISTRY.findIndex(f=>f.prefix.toUpperCase()===prefix); // audit fix: an exact ID prefix now wins over an earlier factory whose name merely contains it
+  if(match<0) match=FACTORY_REGISTRY.findIndex(f=>f.name.toUpperCase().includes(prefix));
   if(match>=0) selectFactory(match);
   else alert('No factory found matching: '+prefix);
 }
